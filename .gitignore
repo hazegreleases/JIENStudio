@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDEs
+.vscode/
+.idea/
+
+# Project specific
+runs/
+*.pt
+*.onnx
+project_config.yaml
+data/
+models/
+exports/
+
+# OS
+.DS_Store
+Thumbs.db
