@@ -2,8 +2,10 @@ import tkinter as tk
 from app.core.project_manager import ProjectManager
 from app.ui.project_view import ProjectView
 from app.ui.labeling_tool import LabelingTool
+from app.ui.organized_labeling import OrganizedLabelingTool
 from app.ui.training_view import TrainingView
 from app.ui.inference_view import InferenceView
+from app.ui.factory_view import FactoryView
 from app.ui.components import RoundedButton
 from app.core.theme_manager import ThemeManager
 
@@ -49,6 +51,7 @@ class MainWindow:
             ("Labeling", "labeling"),
             ("Training", "training"),
             ("Inference", "inference"),
+            ("Factory", "factory"),
             ("Project", "project_settings") 
         ]
 
@@ -72,11 +75,13 @@ class MainWindow:
             return
 
         if view_name == "labeling":
-            self.views[view_name] = LabelingTool(self.main_container, self.project_manager)
+            self.views[view_name] = OrganizedLabelingTool(self.main_container, self.project_manager)
         elif view_name == "training":
             self.views[view_name] = TrainingView(self.main_container, self.project_manager)
         elif view_name == "inference":
             self.views[view_name] = InferenceView(self.main_container, self.project_manager)
+        elif view_name == "factory":
+            self.views[view_name] = FactoryView(self.main_container, self.project_manager)
         
         self.views[view_name].pack(fill=tk.BOTH, expand=True)
         self.current_view = self.views[view_name]

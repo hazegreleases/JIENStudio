@@ -17,10 +17,26 @@ pip-delete-this-directory.txt
 
 # Project specific
 runs/
+factory/output/
+factory_output/
+synthetic_data/
+renders/
+
+# Model Files
 *.pt
+*.pth
 *.onnx
+*.weights
+*.pb
+*.tflite
+*.h5
+*.keras
+*.safetensors
+*.bin
+*.ckpt
+
+# Project Config & Data
 project_config.yaml
-data/
 models/
 exports/
 
