@@ -33,6 +33,12 @@ JIET Studio is a comprehensive GUI application designed to streamline the workfl
 5.  **Train Model**: Switch to the "Training" tab, configure your parameters, and start training.
 6.  **Test**: Use the "Inference" tab to validate your model's performance.
 
+![Alt text](photos/project_window.png)
+![Alt text](photos/labeling_window.png)
+![Alt text](photos/training_window.png)
+![Alt text](photos/inference_window.png)
+![Alt text](photos/inference_dropdown.png)
+
 ## Shortcuts
 
 *   **Labeling**: When in the labeling tab, you can use the following shortcuts:
