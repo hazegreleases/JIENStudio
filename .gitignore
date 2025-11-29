@@ -37,6 +37,7 @@ renders/
 
 # Project Config & Data
 project_config.yaml
+augmentation_config.yaml
 models/
 exports/
 

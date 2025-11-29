@@ -6,6 +6,7 @@ from app.ui.organized_labeling import OrganizedLabelingTool
 from app.ui.training_view import TrainingView
 from app.ui.inference_view import InferenceView
 from app.ui.factory_view import FactoryView
+from app.ui.augmentation_view import AugmentationView
 from app.ui.components import RoundedButton
 from app.core.theme_manager import ThemeManager
 
@@ -51,6 +52,7 @@ class MainWindow:
             ("Labeling", "labeling"),
             ("Training", "training"),
             ("Inference", "inference"),
+            ("Augmentation", "augmentation"),
             ("Factory", "factory"),
             ("Project", "project_settings") 
         ]
@@ -80,6 +82,8 @@ class MainWindow:
             self.views[view_name] = TrainingView(self.main_container, self.project_manager)
         elif view_name == "inference":
             self.views[view_name] = InferenceView(self.main_container, self.project_manager)
+        elif view_name == "augmentation":
+            self.views[view_name] = AugmentationView(self.main_container, self.project_manager)
         elif view_name == "factory":
             self.views[view_name] = FactoryView(self.main_container, self.project_manager)
         

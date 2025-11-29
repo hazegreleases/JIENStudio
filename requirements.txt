@@ -2,7 +2,6 @@ ultralytics
 opencv-python
 Pillow
 pyyaml
-tk
+albumentations>=1.3.0
 psutil
 GPUtil
-

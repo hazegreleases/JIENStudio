@@ -20,6 +20,10 @@ class LabelingTool(tk.Frame):
         self.current_box_start = None
         self.drawing_rect_id = None
         
+        # Crosshair guides
+        self.crosshair_x = None
+        self.crosshair_y = None
+        
         self.history = [] # Stack for undo
         self.redo_stack = []
 
@@ -51,7 +55,7 @@ class LabelingTool(tk.Frame):
         left_panel.pack(side=tk.LEFT, fill=tk.Y)
         
         tk.Label(left_panel, text="Images", bg="#ccc").pack(fill=tk.X)
-        self.image_listbox = tk.Listbox(left_panel)
+        self.image_listbox = tk.Listbox(left_panel, selectmode='extended')
         self.image_listbox.pack(fill=tk.BOTH, expand=True)
         self.image_listbox.bind("<<ListboxSelect>>", self.on_image_select)
 
@@ -72,11 +76,11 @@ class LabelingTool(tk.Frame):
 
         # Inspector
         tk.Label(right_panel, text="Inspector (Boxes)", bg="#ccc").pack(fill=tk.X, pady=(10, 0))
-        self.inspector_listbox = tk.Listbox(right_panel)
+        self.inspector_listbox = tk.Listbox(right_panel, selectmode='extended')
         self.inspector_listbox.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         self.inspector_listbox.bind("<<ListboxSelect>>", self.on_inspector_select)
         self.inspector_listbox.bind("<<ListboxSelect>>", self.on_inspector_select)
-        RoundedButton(right_panel, text="Delete Box (Del)", command=self.delete_selected_box, width=150, height=30).pack(pady=5)
+        RoundedButton(right_panel, text="Delete Box(es) (Del)", command=self.delete_selected_box, width=150, height=30).pack(pady=5)
 
         # Center Canvas
         self.canvas_frame = tk.Frame(content, bg="#888")
@@ -89,6 +93,8 @@ class LabelingTool(tk.Frame):
         self.canvas.bind("<ButtonPress-1>", self.on_canvas_press)
         self.canvas.bind("<B1-Motion>", self.on_canvas_drag)
         self.canvas.bind("<ButtonRelease-1>", self.on_canvas_release)
+        self.canvas.bind("<Motion>", self.on_canvas_motion)
+        self.canvas.bind("<Leave>", self.on_canvas_leave)
         
         self.bind_all("<Control-s>", lambda e: self.save_labels())
         self.bind_all("<Control-z>", lambda e: self.undo())
@@ -222,6 +228,42 @@ class LabelingTool(tk.Frame):
                             
                             self.add_box_visual(x1, y1, x2, y2, cls_name)
 
+    def on_canvas_motion(self, event):
+        """Update crosshair position as mouse moves."""
+        if not self.current_image_path:
+            return
+        
+        # Remove old crosshairs
+        if self.crosshair_x:
+            self.canvas.delete(self.crosshair_x)
+        if self.crosshair_y:
+            self.canvas.delete(self.crosshair_y)
+        
+        # Draw new crosshairs
+        canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
+        
+        # Vertical line (X axis)
+        self.crosshair_x = self.canvas.create_line(
+            event.x, 0, event.x, canvas_height,
+            fill="#00FF00", width=1, dash=(4, 4), tags="crosshair"
+        )
+        
+        # Horizontal line (Y axis)
+        self.crosshair_y = self.canvas.create_line(
+            0, event.y, canvas_width, event.y,
+            fill="#00FF00", width=1, dash=(4, 4), tags="crosshair"
+        )
+    
+    def on_canvas_leave(self, event):
+        """Remove crosshairs when mouse leaves canvas."""
+        if self.crosshair_x:
+            self.canvas.delete(self.crosshair_x)
+            self.crosshair_x = None
+        if self.crosshair_y:
+            self.canvas.delete(self.crosshair_y)
+            self.crosshair_y = None
+    
     def on_canvas_press(self, event):
         if not self.current_image_path: return
         self.current_box_start = (event.x, event.y)
@@ -301,32 +343,54 @@ class LabelingTool(tk.Frame):
             self.delete_selected_box()
 
     def delete_current_image(self):
-        if not self.current_image_path: return
+        """Delete currently selected image(s) from the image list."""
+        selections = self.image_listbox.curselection()
+        if not selections:
+            if not self.current_image_path:
+                return
+            # Fallback to current image
+            filename = os.path.basename(self.current_image_path)
+            if messagebox.askyesno("Delete Image", f"Are you sure you want to delete {filename}?"):
+                self._delete_image_file(self.current_image_path)
+            return
         
-        filename = os.path.basename(self.current_image_path)
-        if messagebox.askyesno("Delete Image", f"Are you sure you want to delete {filename}?"):
-            try:
-                # Delete image
-                os.remove(self.current_image_path)
-                
-                # Delete label if exists
-                label_name = os.path.splitext(filename)[0] + ".txt"
-                label_path = os.path.join(self.project_manager.current_project_path, "data", "labels", label_name)
-                if os.path.exists(label_path):
-                    os.remove(label_path)
-                
-                self.refresh_image_list()
-                
-                # Select next or previous
-                if self.current_image_index < len(self.images):
-                    self.image_listbox.selection_set(self.current_image_index)
-                elif self.images:
-                    self.image_listbox.selection_set(len(self.images)-1)
-                
-                self.image_listbox.event_generate("<<ListboxSelect>>")
-                
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to delete image: {e}")
+        # Multi-select deletion
+        count = len(selections)
+        if not messagebox.askyesno("Delete Images", f"Are you sure you want to delete {count} image(s)?"):
+            return
+        
+        # Delete all selected images
+        for idx in sorted(selections, reverse=True):
+            if idx < len(self.images):
+                filename = self.images[idx]
+                img_path = os.path.join(self.project_manager.current_project_path, "data", "images", filename)
+                self._delete_image_file(img_path)
+        
+        self.refresh_image_list()
+        
+        # Select next or previous
+        if self.current_image_index < len(self.images):
+            self.image_listbox.selection_set(self.current_image_index)
+        elif self.images:
+            self.image_listbox.selection_set(len(self.images)-1)
+        
+        self.image_listbox.event_generate("<<ListboxSelect>>")
+    
+    def _delete_image_file(self, img_path):
+        """Helper to delete an image and its label."""
+        try:
+            filename = os.path.basename(img_path)
+            # Delete image
+            if os.path.exists(img_path):
+                os.remove(img_path)
+            
+            # Delete label if exists
+            label_name = os.path.splitext(filename)[0] + ".txt"
+            label_path = os.path.join(self.project_manager.current_project_path, "data", "labels", label_name)
+            if os.path.exists(label_path):
+                os.remove(label_path)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to delete {filename}: {e}")
 
     def on_mouse_wheel(self, event):
         classes = self.project_manager.get_classes()
@@ -353,15 +417,21 @@ class LabelingTool(tk.Frame):
         self.class_listbox.see(new_idx)
 
     def delete_selected_box(self):
-        sel = self.inspector_listbox.curselection()
-        if sel:
-            idx = sel[0]
-            box = self.boxes.pop(idx)
-            self.canvas.delete(box['id'])
-            self.canvas.delete(box['text_id'])
-            self.history.append(('delete', box, idx))
-            self.redo_stack.clear()
-            self.update_inspector()
+        """Delete selected box(es) from inspector."""
+        selections = self.inspector_listbox.curselection()
+        if not selections:
+            return
+        
+        # Sort in reverse to delete from end to start (preserves indices)
+        for idx in sorted(selections, reverse=True):
+            if idx < len(self.boxes):
+                box = self.boxes.pop(idx)
+                self.canvas.delete(box['id'])
+                self.canvas.delete(box['text_id'])
+                self.history.append(('delete', box, idx))
+        
+        self.redo_stack.clear()
+        self.update_inspector()
 
     def undo(self):
         if not self.history: return

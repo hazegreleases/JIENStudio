@@ -27,6 +27,10 @@ class OrganizedLabelingTool(ttk.Frame):
         self.drawing_rect_id = None
         self.selected_class = None
         
+        # Crosshair guides
+        self.crosshair_x = None
+        self.crosshair_y = None
+        
         # History
         self.history = []
         self.redo_stack = []
@@ -105,6 +109,8 @@ class OrganizedLabelingTool(ttk.Frame):
         self.canvas.bind("<ButtonPress-1>", self.on_canvas_press)
         self.canvas.bind("<B1-Motion>", self.on_canvas_drag)
         self.canvas.bind("<ButtonRelease-1>", self.on_canvas_release)
+        self.canvas.bind("<Motion>", self.on_canvas_motion)
+        self.canvas.bind("<Leave>", self.on_canvas_leave)
         self.bind_all("<Control-s>", lambda e: self.save_labels())
         self.bind_all("<Control-z>", lambda e: self.undo())
         self.bind_all("<Control-y>", lambda e: self.redo())
@@ -118,11 +124,11 @@ class OrganizedLabelingTool(ttk.Frame):
         inspector_frame = ttk.LabelFrame(canvas_inspector, text="Boxes", width=200)
         canvas_inspector.add(inspector_frame, minsize=150)
         
-        self.inspector_listbox = tk.Listbox(inspector_frame, bg="#1e1e1e", fg="white")
+        self.inspector_listbox = tk.Listbox(inspector_frame, bg="#1e1e1e", fg="white", selectmode='extended')
         self.inspector_listbox.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         self.inspector_listbox.bind("<<ListboxSelect>>", self.on_inspector_select)
         
-        ttk.Button(inspector_frame, text="Delete Box", command=self.delete_selected_box).pack(pady=5)
+        ttk.Button(inspector_frame, text="Delete Box(es)", command=self.delete_selected_box).pack(pady=5)
     
     def create_classes_tab(self):
         """Create the Classes tab with collapsible tree."""
@@ -152,7 +158,7 @@ class OrganizedLabelingTool(ttk.Frame):
         """Create a simple list tab."""
         tab = ttk.Frame(self.notebook)
         
-        listbox = tk.Listbox(tab, bg="#1e1e1e", fg="white")
+        listbox = tk.Listbox(tab, bg="#1e1e1e", fg="white", selectmode='extended')
         listbox.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         listbox.bind("<<ListboxSelect>>", lambda e: self.on_simple_list_select(e, name))
         
@@ -338,6 +344,42 @@ class OrganizedLabelingTool(ttk.Frame):
                         
                         self.add_box_visual(x1, y1, x2, y2, classes[cls_idx])
     
+    def on_canvas_motion(self, event):
+        """Update crosshair position as mouse moves."""
+        if not self.current_image_path:
+            return
+        
+        # Remove old crosshairs
+        if self.crosshair_x:
+            self.canvas.delete(self.crosshair_x)
+        if self.crosshair_y:
+            self.canvas.delete(self.crosshair_y)
+        
+        # Draw new crosshairs
+        canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
+        
+        # Vertical line (X axis)
+        self.crosshair_x = self.canvas.create_line(
+            event.x, 0, event.x, canvas_height,
+            fill="#00FF00", width=1, dash=(4, 4), tags="crosshair"
+        )
+        
+        # Horizontal line (Y axis)
+        self.crosshair_y = self.canvas.create_line(
+            0, event.y, canvas_width, event.y,
+            fill="#00FF00", width=1, dash=(4, 4), tags="crosshair"
+        )
+    
+    def on_canvas_leave(self, event):
+        """Remove crosshairs when mouse leaves canvas."""
+        if self.crosshair_x:
+            self.canvas.delete(self.crosshair_x)
+            self.crosshair_x = None
+        if self.crosshair_y:
+            self.canvas.delete(self.crosshair_y)
+            self.crosshair_y = None
+    
     def on_canvas_press(self, event):
         if not self.current_image_path or not self.selected_class:
             return
@@ -392,16 +434,21 @@ class OrganizedLabelingTool(ttk.Frame):
             self.inspector_listbox.insert(tk.END, f"{i}: {box['class']}")
     
     def delete_selected_box(self):
-        """Delete the selected box."""
-        sel = self.inspector_listbox.curselection()
-        if sel:
-            idx = sel[0]
-            box = self.boxes.pop(idx)
-            self.canvas.delete(box['id'])
-            self.canvas.delete(box['text_id'])
-            self.history.append(("delete", box, idx))
-            self.redo_stack.clear()
-            self.update_inspector()
+        """Delete the selected box(es)."""
+        selections = self.inspector_listbox.curselection()
+        if not selections:
+            return
+        
+        # Sort in reverse to delete from end to start (preserves indices)
+        for idx in sorted(selections, reverse=True):
+            if idx < len(self.boxes):
+                box = self.boxes.pop(idx)
+                self.canvas.delete(box['id'])
+                self.canvas.delete(box['text_id'])
+                self.history.append(("delete", box, idx))
+        
+        self.redo_stack.clear()
+        self.update_inspector()
     
     def undo(self):
         """Undo last action."""
@@ -502,15 +549,51 @@ class OrganizedLabelingTool(ttk.Frame):
             self.delete_selected_image_from_tab()
     
     def delete_selected_image_from_tab(self):
-        """Delete image selected in any tab."""
-        if not self.selected_image_for_deletion:
+        """Delete image(s) selected in any tab."""
+        # Collect all selected images
+        images_to_delete = []
+        
+        # Check class tree
+        if self.class_tree.selection():
+            for sel in self.class_tree.selection():
+                if self.class_tree.parent(sel):  # It's an image
+                    img_path = self.class_tree.item(sel)["values"][0]
+                    images_to_delete.append(img_path)
+        
+        # Check negatives listbox
+        neg_selections = self.negatives_listbox.curselection()
+        if neg_selections:
+            for idx in neg_selections:
+                if idx < len(self.negatives_paths):
+                    images_to_delete.append(self.negatives_paths[idx])
+        
+        # Check generated listbox
+        gen_selections = self.generated_listbox.curselection()
+        if gen_selections:
+            for idx in gen_selections:
+                if idx < len(self.generated_paths):
+                    images_to_delete.append(self.generated_paths[idx])
+        
+        if not images_to_delete:
             return
         
-        filename = os.path.basename(self.selected_image_for_deletion)
-        if messagebox.askyesno("Delete", f"Delete {filename}?"):
+        # Confirm deletion
+        count = len(images_to_delete)
+        if count == 1:
+            filename = os.path.basename(images_to_delete[0])
+            if not messagebox.askyesno("Delete", f"Delete {filename}?"):
+                return
+        else:
+            if not messagebox.askyesno("Delete Multiple", f"Delete {count} image(s)?"):
+                return
+        
+        # Delete all selected images
+        for img_path in images_to_delete:
             try:
+                filename = os.path.basename(img_path)
                 # Delete image
-                os.remove(self.selected_image_for_deletion)
+                if os.path.exists(img_path):
+                    os.remove(img_path)
                 
                 # Delete label
                 label_path = os.path.join(
@@ -519,13 +602,17 @@ class OrganizedLabelingTool(ttk.Frame):
                 )
                 if os.path.exists(label_path):
                     os.remove(label_path)
-                
-                self.selected_image_for_deletion = None
-                self.current_image_path = None
-                self.refresh_all_images()
-                messagebox.showinfo("Deleted", f"Deleted {filename}")
             except Exception as e:
-                messagebox.showerror("Error", f"Failed to delete: {e}")
+                messagebox.showerror("Error", f"Failed to delete {filename}: {e}")
+        
+        self.selected_image_for_deletion = None
+        self.current_image_path = None
+        self.refresh_all_images()
+        
+        if count == 1:
+            messagebox.showinfo("Deleted", f"Deleted 1 image")
+        else:
+            messagebox.showinfo("Deleted", f"Deleted {count} images")
     
     def delete_current_image(self):
         """Delete the currently displayed image."""
@@ -570,7 +657,12 @@ class OrganizedLabelingTool(ttk.Frame):
         new_idx = (current_idx + delta) % len(classes)
         self.selected_class = classes[new_idx]
         self.class_var.set(self.selected_class)
-        self.class_combo.current(new_idx)
+        
+        # Check if widget still exists before updating
+        try:
+            self.class_combo.current(new_idx)
+        except tk.TclError:
+            pass  # Widget was destroyed, ignore
     
     def import_generated(self):
         """Import Factory-generated images with timestamps."""

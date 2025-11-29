@@ -6,9 +6,11 @@ JIET Studio is a comprehensive GUI application designed to streamline the workfl
 
 *   **Project Management**: Easily create, load, and manage object detection projects.
 *   **Integrated Labeling Tool**: Built-in image annotation tool for creating bounding boxes and managing classes.
+*   **Data Augmentation**: Dedicated augmentation tab for applying various transformations (rotation, flip, brightness, contrast, blur, noise, etc.) to expand your dataset with real-time preview capabilities.
 *   **YOLO Training**: User-friendly interface to configure and launch YOLO training sessions. Supports customization of epochs, batch size, image size, and model selection.
 *   **Inference & Testing**: Test your trained models on images or video feeds directly within the application.
-*   **Theme Support**: customizable user interface with theme management.
+*   **Blender Integration**: Synthetic data generation support via Blender (note: this feature is currently experimental and quite janky).
+*   **Theme Support**: Customizable user interface with theme management.
 *   **Dependency Management**: Automatic check and installation of required Python packages.
 
 ## Prerequisites
@@ -30,8 +32,9 @@ JIET Studio is a comprehensive GUI application designed to streamline the workfl
 2.  On the first run, the application will check for missing dependencies (listed in `requirements.txt`) and prompt you to install them.
 3.  **Create a Project**: Start by creating a new project or loading an existing one.
 4.  **Label Data**: Use the "Labeling" tab to annotate your images.
-5.  **Train Model**: Switch to the "Training" tab, configure your parameters, and start training.
-6.  **Test**: Use the "Inference" tab to validate your model's performance.
+5.  **Augment Dataset**: (Optional) Use the "Augmentation" tab to expand your dataset with various transformations and filters.
+6.  **Train Model**: Switch to the "Training" tab, configure your parameters, and start training.
+7.  **Test**: Use the "Inference" tab to validate your model's performance.
 
 ## Shortcuts
 
@@ -48,6 +51,14 @@ JIET Studio is a comprehensive GUI application designed to streamline the workfl
 *   `Pillow`
 *   `pyyaml`
 *   `tk` (usually included with Python)
+
+## Roadmap
+
+*   **Synthetic Data Generation**: Automated dataset creation using procedural generation techniques
+*   ~~**Blender Rendering**: 3D scene rendering for synthetic data~~ (currently implemented but experimental)
+*   **Advanced Augmentation Pipeline**: Chained augmentation workflows with custom presets
+*   **Model Export**: Support for additional export formats (TensorRT, CoreML)
+*   **Distributed Training**: Multi-GPU and cloud training support
 
 ---
 
