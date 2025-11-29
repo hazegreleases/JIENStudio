@@ -51,6 +51,7 @@ JIET Studio is a comprehensive GUI application designed to streamline the workfl
 *   `Pillow`
 *   `pyyaml`
 *   `tk` (usually included with Python)
+*   `blender 4.4` trough https://www.blender.org
 
 ## Roadmap
 
