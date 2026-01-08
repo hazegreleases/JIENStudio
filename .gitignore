@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDEs
+.vscode/
+.idea/
+
+# Project specific
+runs/
+factory/output/
+factory_output/
+synthetic_data/
+renders/
+
+# Model Files
+*.pt
+*.pth
+*.onnx
+*.weights
+*.pb
+*.tflite
+*.h5
+*.keras
+*.safetensors
+*.bin
+*.ckpt
+
+# Project Config & Data
+project_config.yaml
+augmentation_config.yaml
+models/
+exports/
+
+# OS
+.DS_Store
+Thumbs.db
