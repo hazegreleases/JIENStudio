@@ -11,199 +11,69 @@ import json
 from datetime import datetime
 from abc import ABC, abstractmethod
 
-# --- Base Class ---
+# --- Dynamic Loading ---
 
-class AugmentationEffect(ABC):
-    """Abstract base class for all augmentation effects."""
+import importlib.util
+import inspect
+
+def load_filters():
+    """Recursively load AugmentationEffect subclasses from the filters directory."""
+    registry = {}
     
-    def __init__(self, probability=0.5, enabled=True):
-        self.probability = probability
-        self.enabled = enabled
-        self.name = self.__class__.__name__
-
-    @abstractmethod
-    def get_transform(self):
-        """Return the Albumentations transform for this effect."""
-        pass
-
-    @abstractmethod
-    def get_params(self):
-        """Return dictionary of parameters for UI configuration."""
-        pass
-
-    @abstractmethod
-    def set_params(self, params):
-        """Set parameters from UI configuration."""
-        pass
-
-    def to_dict(self):
-        """Serialize to dictionary."""
-        data = self.get_params()
-        data['type'] = self.__class__.__name__
-        data['probability'] = self.probability
-        data['enabled'] = self.enabled
-        return data
-
-    @classmethod
-    def from_dict(cls, data):
-        """Deserialize from dictionary."""
-        # This will be handled by a factory method mostly
-        pass
-
-
-# --- Effect Implementations ---
-
-class HorizontalFlipEffect(AugmentationEffect):
-    def get_transform(self):
-        return A.HorizontalFlip(p=self.probability)
-
-    def get_params(self):
-        return {}
-
-    def set_params(self, params):
-        pass
-
-class VerticalFlipEffect(AugmentationEffect):
-    def get_transform(self):
-        return A.VerticalFlip(p=self.probability)
-
-    def get_params(self):
-        return {}
-
-    def set_params(self, params):
-        pass
-
-class RotateEffect(AugmentationEffect):
-    def __init__(self, limit=15, probability=0.5, enabled=True):
-        super().__init__(probability, enabled)
-        self.limit = limit
-
-    def get_transform(self):
-        return A.Rotate(limit=self.limit, p=self.probability, border_mode=cv2.BORDER_CONSTANT)
-
-    def get_params(self):
-        return {'limit': self.limit}
-
-    def set_params(self, params):
-        if 'limit' in params: self.limit = int(params['limit'])
-
-class BlurEffect(AugmentationEffect):
-    def __init__(self, blur_limit=7, probability=0.5, enabled=True):
-        super().__init__(probability, enabled)
-        self.blur_limit = blur_limit
-
-    def get_transform(self):
-        # blur_limit must be odd
-        limit = self.blur_limit if self.blur_limit % 2 != 0 else self.blur_limit + 1
-        return A.Blur(blur_limit=limit, p=self.probability)
-
-    def get_params(self):
-        return {'blur_limit': self.blur_limit}
-
-    def set_params(self, params):
-        if 'blur_limit' in params: self.blur_limit = int(params['blur_limit'])
-
-class GaussianNoiseEffect(AugmentationEffect):
-    def __init__(self, var_limit_min=10.0, var_limit_max=50.0, probability=0.5, enabled=True):
-        super().__init__(probability, enabled)
-        self.var_limit_min = var_limit_min
-        self.var_limit_max = var_limit_max
-
-    def get_transform(self):
-        return A.GaussNoise(var_limit=(self.var_limit_min, self.var_limit_max), p=self.probability)
-
-    def get_params(self):
-        return {'var_limit_min': self.var_limit_min, 'var_limit_max': self.var_limit_max}
-
-    def set_params(self, params):
-        if 'var_limit_min' in params: self.var_limit_min = float(params['var_limit_min'])
-        if 'var_limit_max' in params: self.var_limit_max = float(params['var_limit_max'])
-
-class BrightnessContrastEffect(AugmentationEffect):
-    def __init__(self, brightness_limit=0.2, contrast_limit=0.2, probability=0.5, enabled=True):
-        super().__init__(probability, enabled)
-        self.brightness_limit = brightness_limit
-        self.contrast_limit = contrast_limit
-
-    def get_transform(self):
-        return A.RandomBrightnessContrast(
-            brightness_limit=self.brightness_limit,
-            contrast_limit=self.contrast_limit,
-            p=self.probability
-        )
-
-    def get_params(self):
-        return {'brightness_limit': self.brightness_limit, 'contrast_limit': self.contrast_limit}
-
-    def set_params(self, params):
-        if 'brightness_limit' in params: self.brightness_limit = float(params['brightness_limit'])
-        if 'contrast_limit' in params: self.contrast_limit = float(params['contrast_limit'])
-
-class RandomCropEffect(AugmentationEffect):
-    def __init__(self, height_fraction=0.8, width_fraction=0.8, probability=0.5, enabled=True):
-        super().__init__(probability, enabled)
-        self.height_fraction = height_fraction
-        self.width_fraction = width_fraction
-
-    def get_transform(self):
-        # Calculate target size based on standard 640x640 YOLO input
-        # This ensures consistent output size even if crop varies
-        target_h = int(640 * self.height_fraction)
-        target_w = int(640 * self.width_fraction)
-        
-        # RandomSizedBBoxSafeCrop crops a region containing bboxes and resizes to target_h/w
-        return A.RandomSizedBBoxSafeCrop(
-            height=target_h, 
-            width=target_w, 
-            erosion_rate=0.0, 
-            p=self.probability
-        )
-
-    def get_params(self):
-        return {'height_fraction': self.height_fraction, 'width_fraction': self.width_fraction}
-
-    def set_params(self, params):
-        if 'height_fraction' in params: self.height_fraction = float(params['height_fraction'])
-        if 'width_fraction' in params: self.width_fraction = float(params['width_fraction'])
-
-class RGBShiftEffect(AugmentationEffect):
-    def __init__(self, r_shift=20, g_shift=20, b_shift=20, probability=0.5, enabled=True):
-        super().__init__(probability, enabled)
-        self.r_shift = r_shift
-        self.g_shift = g_shift
-        self.b_shift = b_shift
-
-    def get_transform(self):
-        return A.RGBShift(r_shift_limit=self.r_shift, g_shift_limit=self.g_shift, b_shift_limit=self.b_shift, p=self.probability)
+    # Base directory for filters
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    filters_dir = os.path.join(base_dir, 'augmentation', 'filters')
     
-    def get_params(self):
-        return {'r_shift': self.r_shift, 'g_shift': self.g_shift, 'b_shift': self.b_shift}
-    
-    def set_params(self, params):
-        if 'r_shift' in params: self.r_shift = int(params['r_shift'])
-        if 'g_shift' in params: self.g_shift = int(params['g_shift'])
-        if 'b_shift' in params: self.b_shift = int(params['b_shift'])
+    if not os.path.exists(filters_dir):
+        print(f"Warning: Filters directory not found at {filters_dir}")
+        return registry
 
-# --- Factory ---
+    # Walk through directory
+    for root, dirs, files in os.walk(filters_dir):
+        for file in files:
+            if file.endswith('.py') and not file.startswith('__'):
+                file_path = os.path.join(root, file)
+                
+                try:
+                    # Dynamic import
+                    spec = importlib.util.spec_from_file_location(f"filter_module_{file}", file_path)
+                    module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(module)
+                    
+                    # Inspect for subclasses
+                    for name, obj in inspect.getmembers(module):
+                        if inspect.isclass(obj) and obj.__module__ == module.__name__:
+                            # Check if it inherits from AugmentationEffect (without importing base blindly)
+                            # We can check base class name or importing base safely
+                            if hasattr(obj, 'get_transform') and hasattr(obj, 'to_dict'):
+                                registry[name] = obj
+                                
+                except Exception as e:
+                    print(f"Error loading filter {file_path}: {e}")
+                    
+    return registry
 
-EFFECT_REGISTRY = {
-    'HorizontalFlipEffect': HorizontalFlipEffect,
-    'VerticalFlipEffect': VerticalFlipEffect,
-    'RotateEffect': RotateEffect,
-    'BlurEffect': BlurEffect,
-    'GaussianNoiseEffect': GaussianNoiseEffect,
-    'BrightnessContrastEffect': BrightnessContrastEffect,
-    'RandomCropEffect': RandomCropEffect,
-    'RGBShiftEffect': RGBShiftEffect
-}
+EFFECT_REGISTRY = load_filters()
 
 def create_effect_from_dict(data):
     effect_type = data.get('type')
+    # Refresh registry on creation attempt to support hot-loading (optional, but requested)
+    global EFFECT_REGISTRY
+    
     if effect_type in EFFECT_REGISTRY:
         effect_cls = EFFECT_REGISTRY[effect_type]
         effect = effect_cls(probability=data.get('probability', 0.5), enabled=data.get('enabled', True))
         effect.set_params(data)
         return effect
+    
+    # Try reloading if not found
+    EFFECT_REGISTRY = load_filters()
+    if effect_type in EFFECT_REGISTRY:
+        effect_cls = EFFECT_REGISTRY[effect_type]
+        effect = effect_cls(probability=data.get('probability', 0.5), enabled=data.get('enabled', True))
+        effect.set_params(data)
+        return effect
+        
     return None
 
 # --- Pipeline ---

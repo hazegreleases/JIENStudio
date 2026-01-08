@@ -20,7 +20,13 @@ class OrganizedLabelingTool(ttk.Frame):
         self.photo_image = None
         self.img_width = 0
         self.img_height = 0
+        self.img_width = 0
+        self.img_height = 0
         self.scale = 1.0
+        self.pan_x = 0
+        self.pan_y = 0
+        self.pil_image = None  # Store original PIL image
+        self.image_id = None
         
         self.boxes = []  # {'id': rect_id, 'text_id': text_id, 'class': class_name, 'bbox': [x1,y1,x2,y2]}
         self.current_box_start = None
@@ -35,13 +41,25 @@ class OrganizedLabelingTool(ttk.Frame):
         self.history = []
         self.redo_stack = []
         
+        self.redo_stack = []
+        
+        # Auto-Label state
+        self.auto_label_model_path = None
+        
         # Track current selection context
         self.selected_image_for_deletion = None
+        
+        # Auto-Label State
+        self.auto_label_model_path = None
+        self.confidence_var = tk.DoubleVar(value=0.7)
         
         self.setup_ui()
         self.refresh_all_images()
     
     def setup_ui(self):
+        # ... (lines 45-84 remain, we need to locate where to insert the new button or key bind)
+        # I'll use multi_replace for safer edits across the file.
+        pass # Placeholder, actually using multi_replace_file_content is better here.
         # Main container
         container = tk.PanedWindow(self, orient=tk.HORIZONTAL, sashwidth=5)
         container.pack(fill=tk.BOTH, expand=True)
@@ -84,6 +102,16 @@ class OrganizedLabelingTool(ttk.Frame):
         self.update_class_combo()
         
         ttk.Button(tools_frame, text="Save (Ctrl+S)", command=self.save_labels).pack(side=tk.LEFT, padx=5)
+        ttk.Button(tools_frame, text="Select Model", command=self.select_auto_label_model).pack(side=tk.LEFT, padx=2)
+        
+        # Confidence Control
+        conf_frame = ttk.Frame(tools_frame)
+        conf_frame.pack(side=tk.LEFT, padx=5)
+        ttk.Label(conf_frame, text="Conf:").pack(side=tk.LEFT)
+        ttk.Scale(conf_frame, from_=0.1, to=1.0, variable=self.confidence_var, orient=tk.HORIZONTAL, length=80).pack(side=tk.LEFT)
+        ttk.Label(conf_frame, textvariable=self.confidence_var).pack(side=tk.LEFT)
+        
+        ttk.Button(tools_frame, text="Auto-Label (O)", command=self.auto_label).pack(side=tk.LEFT, padx=2)
         ttk.Button(tools_frame, text="Undo", command=self.undo).pack(side=tk.LEFT, padx=2)
         ttk.Button(tools_frame, text="Redo", command=self.redo).pack(side=tk.LEFT, padx=2)
         
@@ -112,9 +140,17 @@ class OrganizedLabelingTool(ttk.Frame):
         self.bind_all("<Control-y>", lambda e: self.redo())
         self.bind_all("<Delete>", self.handle_delete_key)
         self.bind_all("<Control-Shift-Delete>", lambda e: self.delete_current_image())
-        self.bind_all("<MouseWheel>", self.on_mouse_wheel)
-        self.bind_all("<Button-4>", self.on_mouse_wheel)
-        self.bind_all("<Button-5>", self.on_mouse_wheel)
+        self.bind_all("<Key-r>", self.reset_view)
+        # Pan bindings
+        self.canvas.bind("<ButtonPress-2>", self.start_pan)
+        self.canvas.bind("<B2-Motion>", self.pan)
+        self.canvas.bind("<ButtonPress-3>", self.start_pan) 
+        self.canvas.bind("<B3-Motion>", self.pan)
+        
+        # Zoom/Brush bindings (Canvas only)
+        self.canvas.bind("<MouseWheel>", self.on_mouse_wheel)
+        self.canvas.bind("<Button-4>", self.on_mouse_wheel)
+        self.canvas.bind("<Button-5>", self.on_mouse_wheel)
         
         # Inspector
         inspector_frame = ttk.LabelFrame(canvas_inspector, text="Boxes", width=200)
@@ -283,35 +319,156 @@ class OrganizedLabelingTool(ttk.Frame):
         self.info_label.config(text=os.path.basename(img_path))
         
         try:
-            pil_img = Image.open(img_path)
-            self.img_width, self.img_height = pil_img.size
+            self.pil_image = Image.open(img_path)
+            self.img_width, self.img_height = self.pil_image.size
             
-            canvas_width = self.canvas.winfo_width()
-            canvas_height = self.canvas.winfo_height()
+            # Initial auto-fit
+            self.reset_view()
             
-            if canvas_width > 1 and canvas_height > 1:
-                scale_w = canvas_width / self.img_width
-                scale_h = canvas_height / self.img_height
-                self.scale = min(scale_w, scale_h, 1.0)
-            else:
-                self.scale = 1.0
-            
-            disp_w = int(self.img_width * self.scale)
-            disp_h = int(self.img_height * self.scale)
-            
-            pil_img_resized = pil_img.resize((disp_w, disp_h), Image.Resampling.LANCZOS)
-            self.photo_image = ImageTk.PhotoImage(pil_img_resized)
-            
-            self.canvas.delete("all")
-            self.canvas.create_image(0, 0, anchor=tk.NW, image=self.photo_image)
-            
+            # Reset state
             self.boxes = []
             self.history = []
             self.redo_stack = []
+            
             self.load_existing_labels()
             self.update_inspector()
+            
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load: {e}")
+
+    def reset_view(self, event=None):
+        """Fit image to canvas center."""
+        if not self.pil_image: return
+        
+        self.img_width, self.img_height = self.pil_image.size
+        canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
+        
+        if canvas_width > 1 and canvas_height > 1:
+            scale_w = canvas_width / self.img_width
+            scale_h = canvas_height / self.img_height
+            self.scale = min(scale_w, scale_h, 1.0)
+            
+            # Center it
+            disp_w = self.img_width * self.scale
+            disp_h = self.img_height * self.scale
+            self.pan_x = (canvas_width - disp_w) / 2
+            self.pan_y = (canvas_height - disp_h) / 2
+        else:
+            self.scale = 1.0
+            self.pan_x = 0
+            self.pan_y = 0
+            
+        self.redraw_view()
+
+    def redraw_view(self):
+        """Redraw the visible portion of the image at current scale."""
+        if not self.pil_image: return
+        
+        # Canvas dimensions
+        cw = self.canvas.winfo_width()
+        ch = self.canvas.winfo_height()
+        
+        if cw < 2: cw = 800
+        if ch < 2: ch = 600
+
+        img_w, img_h = self.pil_image.size
+        
+        # 1. Calculate Visible Rectangle in Image Coords
+        # ix = (cx - pan_x) / scale
+        vis_x1 = -self.pan_x / self.scale
+        vis_y1 = -self.pan_y / self.scale
+        vis_x2 = (cw - self.pan_x) / self.scale
+        vis_y2 = (ch - self.pan_y) / self.scale
+        
+        # Intersect with Image Bounds
+        crop_x1 = max(0, int(vis_x1))
+        crop_y1 = max(0, int(vis_y1))
+        crop_x2 = min(img_w, int(vis_x2) + 1)
+        crop_y2 = min(img_h, int(vis_y2) + 1)
+        
+        # Store current boxes data to re-create
+        current_boxes = self.boxes
+        self.boxes = [] # Will be repopulated
+        
+        self.canvas.delete("all")
+
+        # If completely off-screen, just redraw boxes (though likely none visible)
+        if crop_x2 <= crop_x1 or crop_y2 <= crop_y1:
+            pass
+        else:
+            # 2. Crop
+            crop = self.pil_image.crop((crop_x1, crop_y1, crop_x2, crop_y2))
+            
+            # 3. Resize
+            target_w = int((crop_x2 - crop_x1) * self.scale)
+            target_h = int((crop_y2 - crop_y1) * self.scale)
+            
+            # Use NEAREST for speed/sharpness when zoomed inside
+            resample_method = Image.Resampling.NEAREST if self.scale >= 1.0 else Image.Resampling.BILINEAR
+                
+            display_img = crop.resize((max(1, target_w), max(1, target_h)), resample_method)
+            self.photo_image = ImageTk.PhotoImage(display_img)
+            
+            # 4. Position on Canvas
+            draw_x = self.pan_x + crop_x1 * self.scale
+            draw_y = self.pan_y + crop_y1 * self.scale
+            
+            self.image_id = self.canvas.create_image(draw_x, draw_y, anchor=tk.NW, image=self.photo_image)
+        
+        # 5. Redraw boxes
+        for box_data in current_boxes:
+             x1, y1, x2, y2 = box_data['bbox']
+             cls = box_data['class']
+             self.add_box_to_canvas(x1, y1, x2, y2, cls)
+
+    def zoom(self, delta, mouse_x, mouse_y):
+        """Zoom in or out relative to mouse position."""
+        if not self.pil_image: return
+        
+        # Zoom factor
+        factor = 1.1 if delta > 0 else 0.9
+        new_scale = self.scale * factor
+        
+        # Clamp
+        new_scale = max(0.1, min(new_scale, 20.0))
+        
+        if new_scale == self.scale: return
+        
+        # Calculate offset adjustment to keep mouse_x/y over same image pixel
+        # Mouse pos relative to image origin (pan)
+        rel_x = mouse_x - self.pan_x
+        rel_y = mouse_y - self.pan_y
+        
+        # Apply scaling factor to this relative vector
+        # new_rel = rel * (new_scale / old_scale)
+        scale_ratio = new_scale / self.scale
+        
+        new_rel_x = rel_x * scale_ratio
+        new_rel_y = rel_y * scale_ratio
+        
+        # New pan position
+        self.pan_x = mouse_x - new_rel_x
+        self.pan_y = mouse_y - new_rel_y
+        
+        self.scale = new_scale
+        self.redraw_view()
+        
+    def start_pan(self, event):
+        self.canvas.scan_mark(event.x, event.y)
+        self._pan_start_x = event.x
+        self._pan_start_y = event.y
+        self._pan_orig_x = self.pan_x
+        self._pan_orig_y = self.pan_y
+
+    def pan(self, event):
+        # Calculate delta
+        dx = event.x - self._pan_start_x
+        dy = event.y - self._pan_start_y
+        
+        self.pan_x = self._pan_orig_x + dx
+        self.pan_y = self._pan_orig_y + dy
+        self.redraw_view()
     
     def load_existing_labels(self):
         """Load existing YOLO labels."""
@@ -625,7 +782,25 @@ class OrganizedLabelingTool(ttk.Frame):
                 messagebox.showerror("Error", f"Failed to delete: {e}")
     
     def on_mouse_wheel(self, event):
-        """Use mouse wheel to cycle through brush classes."""
+        """Handle mouse wheel for Zoom (Ctrl) or Brush Change."""
+        
+        # Determine direction
+        delta = 0
+        # print(f"DEBUG: MouseWheel num={event.num} delta={getattr(event, 'delta', 'N/A')} state={event.state}")
+        if event.num == 5 or (hasattr(event, 'delta') and event.delta < 0):
+            delta = -1 # Down / Out
+        elif event.num == 4 or (hasattr(event, 'delta') and event.delta > 0):
+            delta = 1 # Up / In
+            
+        if delta == 0: return
+
+        # Check for Control key (Zoom)
+        if (event.state & 0x0004) or (event.state & 4):
+             # event.x/y are relative to canvas because we bound to self.canvas
+             self.zoom(delta, event.x, event.y)
+             return
+
+        # Otherwise Change Brush
         classes = self.project_manager.get_classes()
         if not classes:
             return
@@ -633,13 +808,6 @@ class OrganizedLabelingTool(ttk.Frame):
         current_idx = 0
         if self.selected_class in classes:
             current_idx = classes.index(self.selected_class)
-        
-        # Determine direction
-        delta = 0
-        if event.num == 5 or (hasattr(event, 'delta') and event.delta < 0):
-            delta = 1
-        elif event.num == 4 or (hasattr(event, 'delta') and event.delta > 0):
-            delta = -1
         
         new_idx = (current_idx + delta) % len(classes)
         self.selected_class = classes[new_idx]
@@ -650,5 +818,133 @@ class OrganizedLabelingTool(ttk.Frame):
             self.class_combo.current(new_idx)
         except tk.TclError:
             pass  # Widget was destroyed, ignore
+
+    def select_auto_label_model(self):
+        """Select and cache the model for auto-labeling."""
+        model_path = filedialog.askopenfilename(
+            title="Select YOLO Model",
+            filetypes=[("YOLO Model", "*.pt")]
+        )
+        if model_path:
+            self.auto_label_model_path = model_path
+            messagebox.showinfo("Model Selected", f"Selected: {os.path.basename(model_path)}")
+
+    def auto_label(self):
+        """Run YOLO inference to auto-label the current image."""
+        if not self.current_image_path:
+            return  # Silent return or maybe flash? No, silent is better if no image.
+
+        # 1. Ensure Model
+        if not self.auto_label_model_path:
+            self.select_auto_label_model()
+            if not self.auto_label_model_path:
+                return # User cancelled
+
+        try:
+            # 2. Run Inference
+            from app.core.yolo_wrapper import YOLOWrapper
+            # We can instantiate wrapper lightly or reuse if available in project manager
+            wrapper = YOLOWrapper(self.project_manager.current_project_path)
+            
+            # Run with user specified confidence
+            conf = self.confidence_var.get()
+            results = wrapper.run_inference(self.auto_label_model_path, self.current_image_path, conf=conf)
+            
+            # 3. Process Results
+            added_count = 0
+            
+            for r in results:
+                boxes = r.boxes
+                for box in boxes:
+                    cls_id = int(box.cls[0])
+                    class_name = r.names[cls_id]
+                    
+                    if class_name not in self.project_manager.get_classes():
+                         # Automatically add class if possible or skip?
+                         # User asked for simplified flow. Let's auto-add if missing or skip silently?
+                         # The previous "popup" was annoying.
+                         # Let's add it silently if we can, or just log.
+                         # Safer: Add it silently.
+                         self.project_manager.add_class(class_name)
+                         self.update_class_combo()
+                            
+                    x1, y1, x2, y2 = box.xyxy[0].tolist()
+                    self.add_box_to_canvas(x1, y1, x2, y2, class_name)
+                    added_count += 1
+            
+            if added_count > 0:
+                self.save_history() # Save state for undo
+                # No popup
+            else:
+                self.flash_feedback()
+                
+        except Exception as e:
+            # Only show error if it's a real crash, but maybe just log to console to not annoy user
+            print(f"Auto-label error: {e}")
+            self.flash_feedback() # Flash to indicate failure too?
+
+    def flash_feedback(self):
+        """Flash the canvas red with 50% transparency for 0.1s."""
+        w = self.canvas.winfo_width()
+        h = self.canvas.winfo_height()
+        
+        # Create a red image with alpha
+        # PIL Image.new("RGBA", (w, h), (255, 0, 0, 128))
+        if w <= 1 or h <= 1: return
+            
+        try:
+            flash = Image.new("RGBA", (w, h), (255, 0, 0, 128))
+            self._flash_photo = ImageTk.PhotoImage(flash) # Keep reference
+            
+            flash_id = self.canvas.create_image(0, 0, image=self._flash_photo, anchor="nw")
+            
+            self.after(100, lambda: self.canvas.delete(flash_id))
+        except Exception as e:
+            print(f"Flash error: {e}")
+
+    def get_class_color(self, class_name):
+        """Generate a deterministic color for a class."""
+        # Simple hash based color
+        h = hash(class_name)
+        # Ensure positive
+        if h < 0: h = -h
+        # Hue based on hash
+        r = (h % 255)
+        g = ((h >> 8) % 255)
+        b = ((h >> 16) % 255)
+        # Ensure it's not too dark
+        if r + g + b < 300:
+             r = min(255, r + 100)
+             g = min(255, g + 100)
+             b = min(255, b + 100)
+        return f"#{r:02x}{g:02x}{b:02x}"
+
+    def add_box_to_canvas(self, x1, y1, x2, y2, class_name):
+        """Helper to add a box from coordinates."""
+        # Convert image coords back to canvas coords if zoomed/scaled
+        color = self.get_class_color(class_name)
+        
+        # Apply scale and pan
+        cx1 = x1 * self.scale + self.pan_x
+        cy1 = y1 * self.scale + self.pan_y
+        cx2 = x2 * self.scale + self.pan_x
+        cy2 = y2 * self.scale + self.pan_y
+        
+        rect_id = self.canvas.create_rectangle(
+            cx1, cy1, cx2, cy2, 
+            outline=color, width=2
+        )
+        
+        text_id = self.canvas.create_text(
+            cx1, cy1 - 10, 
+            text=class_name, fill=color, anchor="sw"
+        )
+        
+        self.boxes.append({
+            'id': rect_id,
+            'text_id': text_id,
+            'class': class_name,
+            'bbox': [x1, y1, x2, y2] # Store separate from canvas coords
+        })
     
 

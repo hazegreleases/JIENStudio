@@ -6,9 +6,10 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from PIL import Image, ImageTk
 import os
+import shutil
 import threading
 from app.core.augmentation_engine import (
-    AugmentationEngine, AugmentationPipeline, EFFECT_REGISTRY, create_effect_from_dict
+    AugmentationEngine, AugmentationPipeline, EFFECT_REGISTRY, create_effect_from_dict, load_filters
 )
 from app.ui.components import RoundedButton
 import cv2
@@ -83,6 +84,12 @@ class AugmentationView(ttk.Frame):
         
         ttk.Button(action_frame, text="+ Add", command=self.add_effect, width=6).pack(side=tk.LEFT, padx=2)
         
+        # Filter Management
+        manage_frame = ttk.Frame(parent)
+        manage_frame.pack(fill=tk.X, padx=10, pady=2)
+        ttk.Button(manage_frame, text="Import Filter (.py)", command=self.import_filter).pack(side=tk.LEFT, padx=2)
+        ttk.Button(manage_frame, text="Refresh List", command=self.refresh_effect_registry).pack(side=tk.LEFT, padx=2)
+
         ttk.Button(action_frame, text="Remove", command=self.remove_effect).pack(side=tk.RIGHT, padx=2)
         ttk.Button(action_frame, text="↓", width=3, command=self.move_down).pack(side=tk.RIGHT, padx=2)
         ttk.Button(action_frame, text="↑", width=3, command=self.move_up).pack(side=tk.RIGHT, padx=2)
@@ -376,3 +383,34 @@ class AugmentationView(ttk.Frame):
         self.progress_frame.pack_forget()
         messagebox.showinfo("Done", f"Created {count} images.")
         self.refresh_image_list()
+
+    def import_filter(self):
+        """Import a custom filter file."""
+        file_path = filedialog.askopenfilename(
+            title="Select Filter Script",
+            filetypes=[("Python Files", "*.py")]
+        )
+        if not file_path: return
+        
+        try:
+            # Determine destination
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            dest_dir = os.path.join(base_dir, 'core', 'augmentation', 'filters', 'libraries', 'custom')
+            if not os.path.exists(dest_dir):
+                os.makedirs(dest_dir)
+                
+            shutil.copy(file_path, dest_dir)
+            messagebox.showinfo("Success", f"Imported {os.path.basename(file_path)} to custom library.")
+            self.refresh_effect_registry()
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to import filter: {e}")
+
+    def refresh_effect_registry(self):
+        """Reload filters and update dropdown."""
+        global EFFECT_REGISTRY
+        EFFECT_REGISTRY = load_filters()
+        effect_names = sorted(list(EFFECT_REGISTRY.keys()))
+        self.add_effect_combo['values'] = effect_names
+        if effect_names:
+            self.add_effect_combo.current(0)
