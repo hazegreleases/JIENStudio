@@ -41,6 +41,7 @@ JIET Studio is a comprehensive GUI application designed to streamline the workfl
     *   `Ctrl + S` - Save and move to next image
     *   `Scroll wheel` - Change the drawing class
     *   `Ctrl + Shift + D` OR `Del` - Delete current image
+    *   `Ctrl + Shift + D` OR `Del` - Delete selected label
     Also to remove the Classes you can select the class you want to remove and then you can use the `-` GUI button to delete it.
 
 ## Dependencies
@@ -50,13 +51,6 @@ JIET Studio is a comprehensive GUI application designed to streamline the workfl
 *   `Pillow`
 *   `pyyaml`
 *   `tk` (usually included with Python)
-
-## Roadmap
-
-*   **Synthetic Data Generation**: Automated dataset creation using procedural generation techniques
-*   **Advanced Augmentation Pipeline**: Chained augmentation workflows with custom presets
-*   **Model Export**: Support for additional export formats (TensorRT, CoreML)
-*   **Distributed Training**: Multi-GPU and cloud training support
 
 ---
 
