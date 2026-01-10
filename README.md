@@ -5,7 +5,7 @@
 
 ---
 
-## 🚀 Why JIENStudio?
+## 🚀 Why JIETStudio?
 
 Most YOLO tools force you to upload gigabytes of data to the cloud, wait for processing, and pay for training credits. **JIENStudio runs 100% offline on your hardware.**
 
