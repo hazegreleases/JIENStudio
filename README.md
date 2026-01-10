@@ -5,7 +5,7 @@
 
 ---
 
-## 🚀 Why JIENStudio?
+## 🚀 Why JIETStudio?
 
 Most YOLO tools force you to upload gigabytes of data to the cloud, wait for processing, and pay for training credits. **JIETStudio runs 100% offline on your hardware.**
 
@@ -14,7 +14,7 @@ It is designed for **Flow State**: no popups, no "Are you sure?" dialogs, just s
 | Feature | Cloud Tools (Roboflow/CVAT) | JIETStudio |
 | :--- | :--- | :--- |
 | **Privacy** | Data uploaded to public servers | **100% Local & Private** |
-| **Labeling** | Slow dropdown menus | **Scroll-Wheel Class Switching** |
+| **Labeling** | Slow dropdown menus | **Scroll-Wheel Class Switching And Auto-Labeling** |
 | **Saving** | Latency + Spinners | **Instant "Green Flash" Save** |
 | **Training** | Limited Credits / Queues | **Unlimited Local GPU Training** |
 | **Cost** | $$$ Monthly Subscriptions | **Free & Open Source** |
