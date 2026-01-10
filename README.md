@@ -5,13 +5,13 @@
 
 ---
 
-## 🚀 Why JIETStudio?
+## 🚀 Why JIENStudio?
 
-Most YOLO tools force you to upload gigabytes of data to the cloud, wait for processing, and pay for training credits. **JIENStudio runs 100% offline on your hardware.**
+Most YOLO tools force you to upload gigabytes of data to the cloud, wait for processing, and pay for training credits. **JIETStudio runs 100% offline on your hardware.**
 
 It is designed for **Flow State**: no popups, no "Are you sure?" dialogs, just speed.
 
-| Feature | Cloud Tools (Roboflow/CVAT) | JIENStudio |
+| Feature | Cloud Tools (Roboflow/CVAT) | JIETStudio |
 | :--- | :--- | :--- |
 | **Privacy** | Data uploaded to public servers | **100% Local & Private** |
 | **Labeling** | Slow dropdown menus | **Scroll-Wheel Class Switching** |
@@ -27,9 +27,9 @@ It is designed for **Flow State**: no popups, no "Are you sure?" dialogs, just s
 Designed for speed. Switch classes with your mouse wheel. Zoom with `Ctrl+Scroll` for pixel-perfect accuracy. Save instantly with `Ctrl+S`. No lag, no waiting.
 
 ### 2. Industrial-Grade Augmentation (Plugin System)
-Don't just use standard blurs. JIENStudio features a **modular plugin system**.
+Don't just use standard blurs. JIETStudio features a **modular plugin system**.
 * **Built-in:** Rotate, Flip, Noise, Brightness.
-* **Custom Scripting:** Write your own Python filters (e.g., `IndustrialGlareFix`, `MotionBlur`) and drop them into the folder. The UI automatically generates sliders for your custom parameters.
+* **Custom Scripting:** Write your own Python filters and use them. The UI automatically generates sliders for your custom parameters.
 
 ### 3. One-Click Training
 Forget messing with `data.yaml` files or complex terminal commands.
@@ -39,7 +39,7 @@ Forget messing with `data.yaml` files or complex terminal commands.
 * *The app handles the entire folder structure and formatting for you.*
 
 ### 4. Integrated Inference
-Test your model immediately after training. Drag and drop images, run a video file, or open your webcam to see real-time detections with your new model.
+Test your model immediately after training. Pick images, run a video file, or open your webcam to see real-time detections with your new model.
 
 ---
 
@@ -48,13 +48,13 @@ Test your model immediately after training. Drag and drop images, run a video fi
 **Prerequisites:**
 * Python 3.8+
 * Windows OS (Recommended for GUI support)
-* A GPU (NVIDIA RTX recommended for training, but CPU works too)
+* A GPU (NVIDIA RTX recommended for training)
 
 **Setup:**
 1.  Clone the repository:
     ```bash
-    git clone [https://github.com/hazegreleases/JIENStudio.git](https://github.com/hazegreleases/JIENStudio.git)
-    cd JIENStudio
+    git clone [https://github.com/hazegreleases/JIETStudio.git](https://github.com/hazegreleases/JIETStudio.git)
+    cd JIETStudio
     ```
 2.  Run the app (Dependencies auto-install on first run):
     ```bash
