@@ -1,14 +1,14 @@
 # Just In Enough Time Studio (JIET Studio)
 
-JIET Studio is a comprehensive GUI application designed to streamline the workflow for YOLO object detection projects. From data annotation to model training and inference, this tool provides a unified interface for managing your computer vision tasks.
+JIET Studio is a comprehensive GUI application designed to streamline the workflow for YOLO object detection projects and to be reliably fast. From data annotation to model training and inference, this tool provides a unified interface for managing your computer vision tasks.
 
 ## Features
 
 *   **Project Management**: Easily create, load, and manage object detection projects.
-*   **Integrated Labeling Tool**: Built-in image annotation tool for creating bounding boxes and managing classes.
-*   **Data Augmentation**: Dedicated augmentation tab for applying various transformations (rotation, flip, brightness, contrast, blur, noise, etc.) to expand your dataset with real-time preview capabilities.
+*   **Integrated Labeling Tool**: Built-in image annotation tool for creating bounding boxes and managing classes with speed and efficiency in mind housing tools like Auto-Labeling.
+*   **Data Augmentation**: Dedicated augmentation tab for applying various transformations (rotation, flip, brightness, contrast, blur, noise, etc.) to expand your dataset with real-time preview capabilities which are modular and can be community made.
 *   **YOLO Training**: User-friendly interface to configure and launch YOLO training sessions. Supports customization of epochs, batch size, image size, and model selection.
-*   **Inference & Testing**: Test your trained models on images or video feeds directly within the application.
+*   **Inference & Testing**: Test your trained models on images, video feeds or webcam directly within the application.
 *   **Theme Support**: Customizable user interface with theme management.
 *   **Dependency Management**: Automatic check and installation of required Python packages.
 
