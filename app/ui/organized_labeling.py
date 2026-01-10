@@ -321,20 +321,26 @@ class OrganizedLabelingTool(ttk.Frame):
         try:
             self.pil_image = Image.open(img_path)
             self.img_width, self.img_height = self.pil_image.size
+
             
-            # Initial auto-fit
-            self.reset_view()
-            
+
             # Reset state
             self.boxes = []
             self.history = []
             self.redo_stack = []
+
+            self.canvas.delete("all")
             
             self.load_existing_labels()
+            self.reset_view()
             self.update_inspector()
+
+            # self.load_existing_labels()
+            # self.update_inspector()
             
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load: {e}")
+    
 
     def reset_view(self, event=None):
         """Fit image to canvas center."""

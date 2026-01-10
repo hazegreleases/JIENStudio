@@ -34,12 +34,18 @@ renders/
 *.safetensors
 *.bin
 *.ckpt
+task.md
+.gitignore
+bridge/
+simulation/
+
 
 # Project Config & Data
 project_config.yaml
 augmentation_config.yaml
 models/
 exports/
+task.md
 
 # OS
 .DS_Store
