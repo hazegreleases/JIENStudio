@@ -25,6 +25,7 @@ It is designed for **Flow State**: no popups, no "Are you sure?" dialogs, just s
 
 ### 1. The "Flow State" Labeler
 Designed for speed. Switch classes with your mouse wheel. Zoom with `Ctrl+Scroll` for pixel-perfect accuracy. Save instantly with `Ctrl+S`. No lag, no waiting.
+Auto-Labeling with your selection of models for faster Labeling tasks.
 
 ### 2. Industrial-Grade Augmentation (Plugin System)
 Don't just use standard blurs. JIETStudio features a **modular plugin system**.
