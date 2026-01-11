@@ -282,7 +282,7 @@ class SepiaEffect(AugmentationEffect):
 2. In Augmentation tab → Click "Import Filter"
 3. Select file → Filter appears in dropdown **with auto-generated UI slider**
 
-See [FILTER_GUIDE.md](FILTER_GUIDE.md) for full documentation.
+See [FILTER_GUIDE.md](docs/custom_filters.md) for full documentation.
 
 ---
 
