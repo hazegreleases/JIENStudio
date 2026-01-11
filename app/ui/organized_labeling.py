@@ -722,8 +722,18 @@ class OrganizedLabelingTool(ttk.Frame):
                 
                 f.write(f"{cls_idx} {cx:.6f} {cy:.6f} {w:.6f} {h:.6f}\n")
         
-        messagebox.showinfo("Saved", f"Labels saved for {filename}")
+        # Determine what's next before refreshing
+        next_path = self.get_next_image_path()
+        
+        # visual feedback instead of annoying popup
+        self.flash_feedback()
         self.refresh_all_images()
+        
+        # Navigate to next image if available
+        if next_path:
+            self.load_image(next_path)
+            # Find and select it in the UI too for consistency
+            self.select_path_in_ui(next_path)
     
     def import_images(self):
         """Import images."""
@@ -957,16 +967,15 @@ class OrganizedLabelingTool(ttk.Frame):
             self.flash_feedback() # Flash to indicate failure too?
 
     def flash_feedback(self):
-        """Flash the canvas red with 50% transparency for 0.1s."""
+        """Flash the canvas green with 50% transparency for 0.1s."""
         w = self.canvas.winfo_width()
         h = self.canvas.winfo_height()
         
-        # Create a red image with alpha
-        # PIL Image.new("RGBA", (w, h), (255, 0, 0, 128))
         if w <= 1 or h <= 1: return
             
         try:
-            flash = Image.new("RGBA", (w, h), (255, 0, 0, 128))
+            # Green flash (0, 255, 0)
+            flash = Image.new("RGBA", (w, h), (0, 255, 0, 128))
             self._flash_photo = ImageTk.PhotoImage(flash) # Keep reference
             
             flash_id = self.canvas.create_image(0, 0, image=self._flash_photo, anchor="nw")
@@ -995,6 +1004,68 @@ class OrganizedLabelingTool(ttk.Frame):
     def add_box_to_canvas(self, x1, y1, x2, y2, class_name):
         """Helper to add a box from coordinates. Redirects to add_box_visual with history."""
         self.add_box_visual(x1, y1, x2, y2, class_name, record_history=True)
+
+    def get_next_image_path(self):
+        """Find the path of the next image in the current UI context."""
+        tab_idx = self.notebook.index(self.notebook.select())
+        
+        if tab_idx == 0:  # Classes tab (Treeview)
+            items = self.class_tree.get_children('')
+            all_images = []
+            def collect_images(parent):
+                for item in self.class_tree.get_children(parent):
+                    if self.class_tree.parent(item): # It's an image
+                        all_images.append(item)
+                    collect_images(item)
+            
+            for root_item in items:
+                collect_images(root_item)
+                
+            selection = self.class_tree.selection()
+            if selection and selection[0] in all_images:
+                idx = all_images.index(selection[0])
+                if idx + 1 < len(all_images):
+                    next_item = all_images[idx + 1]
+                    return self.class_tree.item(next_item)["values"][0]
+        
+        elif tab_idx == 1:  # Negatives tab (Listbox)
+            sel = self.negatives_listbox.curselection()
+            if sel:
+                next_idx = sel[0] + 1
+                if next_idx < len(self.negatives_paths):
+                    return self.negatives_paths[next_idx]
+        
+        return None
+
+    def select_path_in_ui(self, target_path):
+        """Try to find and select a specific image path in the UI."""
+        tab_idx = self.notebook.index(self.notebook.select())
+        
+        if tab_idx == 0:  # Classes tab
+            items = self.class_tree.get_children('')
+            def find_and_select(parent):
+                for item in self.class_tree.get_children(parent):
+                    if self.class_tree.parent(item):
+                        path = self.class_tree.item(item)["values"][0]
+                        if path == target_path:
+                            self.class_tree.selection_set(item)
+                            self.class_tree.see(item)
+                            return True
+                    if find_and_select(item):
+                        return True
+                return False
+            
+            for root_item in items:
+                if find_and_select(root_item):
+                    break
+                    
+        elif tab_idx == 1:  # Negatives tab
+            for i, path in enumerate(self.negatives_paths):
+                if path == target_path:
+                    self.negatives_listbox.selection_clear(0, tk.END)
+                    self.negatives_listbox.selection_set(i)
+                    self.negatives_listbox.see(i)
+                    break
     
 
 
