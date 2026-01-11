@@ -14,7 +14,7 @@ It is designed for **Flow State**: no popups, no "Are you sure?" dialogs, just s
 | Feature | Cloud Tools (Roboflow/CVAT) | JIETStudio |
 | :--- | :--- | :--- |
 | **Privacy** | Data uploaded to public servers | **100% Local & Private** |
-| **Labeling** | Slow dropdown menus | **Scroll-Wheel Class Switching And Auto-Labeling** |
+| **Labeling** | Slow dropdown menus | **Scroll-Wheel Class Switching And Magic Wand** |
 | **Saving** | Latency + Spinners | **Instant "Green Flash" Save** |
 | **Training** | Limited Credits / Queues | **Unlimited Local GPU Training** |
 | **Cost** | $$$ Monthly Subscriptions | **Free & Open Source** |
@@ -25,8 +25,8 @@ It is designed for **Flow State**: no popups, no "Are you sure?" dialogs, just s
 
 ### 1. The "Flow State" Labeler
 Designed for speed. Switch classes with your mouse wheel. Zoom with `Ctrl+Scroll` for pixel-perfect accuracy. Save instantly with `Ctrl+S`. No lag, no waiting.
-Auto-Labeling with your selection of models for faster Labeling tasks.
-
+Auto-Labeling with your selection of models for faster Labeling tasks or `🌟 Magic Wand` for just click and label.
+`🌟 Magic Wand` work by using the SAM2.1_L Model and works by just clicking and Labeling.
 ### 2. Industrial-Grade Augmentation (Plugin System)
 Don't just use standard blurs. JIETStudio features a **modular plugin system**.
 * **Built-in:** Rotate, Flip, Noise, Brightness.
