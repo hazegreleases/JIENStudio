@@ -38,6 +38,7 @@ task.md
 .gitignore
 bridge/
 simulation/
+app/core/augmentations/libraries/custom/*
 
 
 # Project Config & Data

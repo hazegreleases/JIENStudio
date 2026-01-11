@@ -5,7 +5,13 @@ from app.core.theme_manager import ThemeManager
 class RoundedButton(tk.Canvas):
     def __init__(self, parent, text, command=None, width=120, height=40, corner_radius=10, 
                  bg_color=None, hover_color=None, click_color=None, text_color=None, font=None):
-        super().__init__(parent, width=width, height=height, bg=parent["bg"], highlightthickness=0)
+        try:
+            parent_bg = parent["bg"]
+        except:
+            # Fallback for ttk widgets
+            parent_bg = ThemeManager().get("window_bg_color")
+
+        super().__init__(parent, width=width, height=height, bg=parent_bg, highlightthickness=0)
         
         self.theme = ThemeManager()
         

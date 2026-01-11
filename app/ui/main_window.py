@@ -41,6 +41,8 @@ class MainWindow:
         self.show_view("labeling")
 
     def setup_nav_bar(self):
+        self._setup_menu()
+        
         self.nav_bar.pack(side=tk.TOP, fill=tk.X)
         
         # Clear existing buttons if any
@@ -64,6 +66,19 @@ class MainWindow:
         tk.Label(self.nav_bar, text=f"Project: {self.project_manager.project_config.get('name')}", 
                  bg=self.theme.get("window_bg_color"), fg=self.theme.get("window_text_color"), 
                  font=(self.theme.get("font_family"), int(self.theme.get("font_size_normal")))).pack(side=tk.RIGHT, padx=10)
+
+    def _setup_menu(self):
+        self.menubar = tk.Menu(self.root)
+        self.root.config(menu=self.menubar)
+        
+        jiet_menu = tk.Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="JIET", menu=jiet_menu)
+        jiet_menu.add_command(label="Settings", command=self.show_settings)
+        
+    def show_settings(self):
+        from app.ui.settings_window import SettingsWindow
+        SettingsWindow(self.root, self.project_manager)
+
 
     def show_view(self, view_name):
         self.clear_view()

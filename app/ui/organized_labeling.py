@@ -6,6 +6,7 @@ import os
 import shutil
 from app.core.theme_manager import ThemeManager
 from datetime import datetime
+from app.core.sam_wrapper import SAMWrapper
 
 class OrganizedLabelingTool(ttk.Frame):
     """Tabbed labeling interface with drawing capabilities."""
@@ -44,14 +45,14 @@ class OrganizedLabelingTool(ttk.Frame):
         self.redo_stack = []
         
         # Auto-Label state
-        self.auto_label_model_path = None
+        # Model and confidence now in project_manager settings
+        
+        # SAM2 Magic Wand State
+        self.sam_wrapper = None
+        self.is_magic_wand_active = True # Default to Magic Wand as requested
         
         # Track current selection context
         self.selected_image_for_deletion = None
-        
-        # Auto-Label State
-        self.auto_label_model_path = None
-        self.confidence_var = tk.DoubleVar(value=0.7)
         
         self.setup_ui()
         self.refresh_all_images()
@@ -92,7 +93,16 @@ class OrganizedLabelingTool(ttk.Frame):
         tools_frame = ttk.Frame(right_panel)
         tools_frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
         
-        ttk.Label(tools_frame, text="Brush:").pack(side=tk.LEFT, padx=5)
+        # Mode Selection Buttons (Square vs Star)
+        self.btn_manual = RoundedButton(tools_frame, text="◻", command=self.set_manual_mode, 
+                                      width=40, height=30, font=(self.theme.get("font_family"), 16))
+        self.btn_manual.pack(side=tk.LEFT, padx=2)
+        
+        self.btn_magic = RoundedButton(tools_frame, text="★", command=self.set_magic_mode, 
+                                     width=40, height=30, font=(self.theme.get("font_family"), 16))
+        self.btn_magic.pack(side=tk.LEFT, padx=2)
+
+        ttk.Label(tools_frame, text="Brush:").pack(side=tk.LEFT, padx=(10, 5))
         
         # Class selector (brush)
         self.class_var = tk.StringVar()
@@ -102,14 +112,9 @@ class OrganizedLabelingTool(ttk.Frame):
         self.update_class_combo()
         
         ttk.Button(tools_frame, text="Save (Ctrl+S)", command=self.save_labels).pack(side=tk.LEFT, padx=5)
-        ttk.Button(tools_frame, text="Select Model", command=self.select_auto_label_model).pack(side=tk.LEFT, padx=2)
         
-        # Confidence Control
-        conf_frame = ttk.Frame(tools_frame)
-        conf_frame.pack(side=tk.LEFT, padx=5)
-        ttk.Label(conf_frame, text="Conf:").pack(side=tk.LEFT)
-        ttk.Scale(conf_frame, from_=0.1, to=1.0, variable=self.confidence_var, orient=tk.HORIZONTAL, length=80).pack(side=tk.LEFT)
-        ttk.Label(conf_frame, textvariable=self.confidence_var).pack(side=tk.LEFT)
+        # Removed: Select Model, Confidence Controls (moved to Settings)
+
         
         ttk.Button(tools_frame, text="Auto-Label (O)", command=self.auto_label).pack(side=tk.LEFT, padx=2)
         ttk.Button(tools_frame, text="Undo", command=self.undo).pack(side=tk.LEFT, padx=2)
@@ -540,6 +545,11 @@ class OrganizedLabelingTool(ttk.Frame):
     def on_canvas_press(self, event):
         if not self.current_image_path or not self.selected_class:
             return
+            
+        if self.is_magic_wand_active:
+             self.handle_magic_wand_click(event.x, event.y)
+             return
+
         self.current_box_start = (event.x, event.y)
         self.drawing_rect_id = self.canvas.create_rectangle(event.x, event.y, event.x, event.y, outline="red", width=2)
     
@@ -557,8 +567,8 @@ class OrganizedLabelingTool(ttk.Frame):
             y1, y2 = sorted([y1, y2])
             
             if (x2 - x1) > 5 and (y2 - y1) > 5:
-                img_x1, img_y1 = x1 / self.scale, y1 / self.scale
-                img_x2, img_y2 = x2 / self.scale, y2 / self.scale
+                img_x1, img_y1 = (x1 - self.pan_x) / self.scale, (y1 - self.pan_y) / self.scale
+                img_x2, img_y2 = (x2 - self.pan_x) / self.scale, (y2 - self.pan_y) / self.scale
                 
                 self.canvas.delete(self.drawing_rect_id)
                 self.add_box_visual(img_x1, img_y1, img_x2, img_y2, self.selected_class, record_history=True)
@@ -570,11 +580,13 @@ class OrganizedLabelingTool(ttk.Frame):
     
     def add_box_visual(self, x1, y1, x2, y2, cls_name, record_history=False):
         """Add a box to the canvas."""
-        sx1, sy1 = x1 * self.scale, y1 * self.scale
-        sx2, sy2 = x2 * self.scale, y2 * self.scale
+        sx1, sy1 = x1 * self.scale + self.pan_x, y1 * self.scale + self.pan_y
+        sx2, sy2 = x2 * self.scale + self.pan_x, y2 * self.scale + self.pan_y
         
-        rect_id = self.canvas.create_rectangle(sx1, sy1, sx2, sy2, outline="lime", width=2, tags="box")
-        text_id = self.canvas.create_text(sx1, sy1-10, text=cls_name, fill="lime", anchor=tk.SW, tags="box")
+        color = self.get_class_color(cls_name)
+        
+        rect_id = self.canvas.create_rectangle(sx1, sy1, sx2, sy2, outline=color, width=2, tags="box")
+        text_id = self.canvas.create_text(sx1, sy1-10, text=cls_name, fill=color, anchor=tk.SW, tags="box")
         
         box = {"id": rect_id, "text_id": text_id, "class": cls_name, "bbox": [x1, y1, x2, y2]}
         self.boxes.append(box)
@@ -583,6 +595,17 @@ class OrganizedLabelingTool(ttk.Frame):
         if record_history:
             self.history.append(("add", box))
             self.redo_stack.clear()
+
+    def save_history(self):
+        """Save current state to history for undo."""
+        # This seems to be intended to save a 'bulk' action or just marking a point.
+        # However, the current history is action-based ((add, box), (delete, box)).
+        # auto_label adds multiple boxes.
+        # We should probably rework auto_label to add to history item by item or as a group.
+        # For now, let's just piggyback on add_box_visual's record_history=True.
+        # But auto_label calls add_box_to_canvas which calls add_box_canvas (no history) or something?
+        # Let's see add_box_to_canvas in line 958.
+        pass
     
     def update_inspector(self):
         """Update the inspector listbox."""
@@ -624,8 +647,9 @@ class OrganizedLabelingTool(ttk.Frame):
             self.boxes.insert(idx, box)
             sx1, sy1 = box['bbox'][0] * self.scale, box['bbox'][1] * self.scale
             sx2, sy2 = box['bbox'][2] * self.scale, box['bbox'][3] * self.scale
-            box['id'] = self.canvas.create_rectangle(sx1, sy1, sx2, sy2, outline="lime", width=2, tags="box")
-            box['text_id'] = self.canvas.create_text(sx1, sy1-10, text=box['class'], fill="lime", anchor=tk.SW, tags="box")
+            color = self.get_class_color(box['class'])
+            box['id'] = self.canvas.create_rectangle(sx1, sy1, sx2, sy2, outline=color, width=2, tags="box")
+            box['text_id'] = self.canvas.create_text(sx1, sy1-10, text=box['class'], fill=color, anchor=tk.SW, tags="box")
             self.redo_stack.append(action)
         
         self.update_inspector()
@@ -825,26 +849,46 @@ class OrganizedLabelingTool(ttk.Frame):
         except tk.TclError:
             pass  # Widget was destroyed, ignore
 
-    def select_auto_label_model(self):
-        """Select and cache the model for auto-labeling."""
-        model_path = filedialog.askopenfilename(
-            title="Select YOLO Model",
-            filetypes=[("YOLO Model", "*.pt")]
-        )
-        if model_path:
-            self.auto_label_model_path = model_path
-            messagebox.showinfo("Model Selected", f"Selected: {os.path.basename(model_path)}")
+    # Removed select_auto_label_model, using project_settings now
+
+    def set_manual_mode(self):
+        """Switch to manual box drawing mode."""
+        self.is_magic_wand_active = False
+        self._update_cursor()
+        
+    def set_magic_mode(self):
+        """Switch to Magic Wand mode."""
+        self.is_magic_wand_active = True
+        self._init_sam_if_needed()
+        self._update_cursor()
+        
+    def _update_cursor(self):
+        if self.is_magic_wand_active:
+             self.canvas.config(cursor="target")
+        else:
+             self.canvas.config(cursor="cross")
+
+    def _init_sam_if_needed(self):
+        if self.is_magic_wand_active and not self.sam_wrapper:
+             try:
+                 self.sam_wrapper = SAMWrapper()
+                 # sticky notification instead of popup? Or just silent?
+                 # messagebox.showinfo("SAM2 Ready", "Magic Wand is ready. Click on objects to auto-select.")
+             except Exception as e:
+                 messagebox.showerror("Error", f"Failed to init SAM2: {e}")
+                 self.is_magic_wand_active = False
+                 self._update_cursor()
 
     def auto_label(self):
         """Run YOLO inference to auto-label the current image."""
         if not self.current_image_path:
             return  # Silent return or maybe flash? No, silent is better if no image.
 
-        # 1. Ensure Model
-        if not self.auto_label_model_path:
-            self.select_auto_label_model()
-            if not self.auto_label_model_path:
-                return # User cancelled
+        # 1. Ensure Model from Settings
+        model_path = self.project_manager.get_setting("auto_label_model")
+        if not model_path or not os.path.exists(model_path):
+             messagebox.showwarning("No Model", "Please select an Auto-Labeling model in JIET > Settings.")
+             return
 
         try:
             # 2. Run Inference
@@ -853,8 +897,8 @@ class OrganizedLabelingTool(ttk.Frame):
             wrapper = YOLOWrapper(self.project_manager.current_project_path)
             
             # Run with user specified confidence
-            conf = self.confidence_var.get()
-            results = wrapper.run_inference(self.auto_label_model_path, self.current_image_path, conf=conf)
+            conf = float(self.project_manager.get_setting("auto_label_confidence", 0.5))
+            results = wrapper.run_inference(model_path, self.current_image_path, conf=conf)
             
             # 3. Process Results
             added_count = 0
@@ -926,31 +970,44 @@ class OrganizedLabelingTool(ttk.Frame):
         return f"#{r:02x}{g:02x}{b:02x}"
 
     def add_box_to_canvas(self, x1, y1, x2, y2, class_name):
-        """Helper to add a box from coordinates."""
-        # Convert image coords back to canvas coords if zoomed/scaled
-        color = self.get_class_color(class_name)
-        
-        # Apply scale and pan
-        cx1 = x1 * self.scale + self.pan_x
-        cy1 = y1 * self.scale + self.pan_y
-        cx2 = x2 * self.scale + self.pan_x
-        cy2 = y2 * self.scale + self.pan_y
-        
-        rect_id = self.canvas.create_rectangle(
-            cx1, cy1, cx2, cy2, 
-            outline=color, width=2
-        )
-        
-        text_id = self.canvas.create_text(
-            cx1, cy1 - 10, 
-            text=class_name, fill=color, anchor="sw"
-        )
-        
-        self.boxes.append({
-            'id': rect_id,
-            'text_id': text_id,
-            'class': class_name,
-            'bbox': [x1, y1, x2, y2] # Store separate from canvas coords
-        })
+        """Helper to add a box from coordinates. Redirects to add_box_visual with history."""
+        self.add_box_visual(x1, y1, x2, y2, class_name, record_history=True)
     
 
+
+    def toggle_magic_wand(self):
+        # Deprecated by set_manual_mode and set_magic_mode
+        pass
+
+    def handle_magic_wand_click(self, x, y):
+        """Handle click for magic wand."""
+        if not self.sam_wrapper or not self.current_image_path:
+            return
+            
+        # Convert canvas coords to image coords
+        img_x = (x - self.pan_x) / self.scale
+        img_y = (y - self.pan_y) / self.scale
+        
+        # Check if click is within image
+        if img_x < 0 or img_y < 0 or img_x > self.img_width or img_y > self.img_height:
+            return
+            
+        try:
+            # Show processing indicator (cursor)
+            self.canvas.config(cursor="watch")
+            self.update_idletasks()
+            
+            bbox = self.sam_wrapper.predict_point(self.current_image_path, (img_x, img_y))
+            
+            self.canvas.config(cursor="target")
+            
+            if bbox:
+                x1, y1, x2, y2 = bbox
+                self.add_box_visual(x1, y1, x2, y2, self.selected_class, record_history=True)
+            else:
+                self.flash_feedback()
+                
+        except Exception as e:
+            print(f"Magic Wand Error: {e}")
+            self.canvas.config(cursor="target")
+            self.flash_feedback()

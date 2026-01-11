@@ -67,6 +67,17 @@ class ProjectManager:
             self.project_config["classes"].remove(class_name)
             self.save_project()
 
+    def get_setting(self, key, default=None):
+        """Get a setting from project config."""
+        return self.project_config.get("settings", {}).get(key, default)
+
+    def set_setting(self, key, value):
+        """Set a setting in project config."""
+        if "settings" not in self.project_config:
+            self.project_config["settings"] = {}
+        self.project_config["settings"][key] = value
+        self.save_project()
+
     def load_recent_projects(self):
         if os.path.exists(self.recent_projects_file):
             try:
