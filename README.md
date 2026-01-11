@@ -225,7 +225,7 @@ Master these to achieve **Flow State**:
 
 | Action | Shortcut | Pro Tip |
 |--------|----------|---------|
-| **Save & Next** | `Ctrl + S` | Green flash = saved |
+| **Save & Next** | `Ctrl + S` | Instant save |
 | **Switch Class** | `Scroll Wheel` | Keep hand on mouse |
 | **Zoom** | `Ctrl + Scroll` | Zooms to mouse position |
 | **Delete Box** | `Del` | Select box first |
@@ -238,33 +238,6 @@ Master these to achieve **Flow State**:
 
 ---
 
-## 🏗️ Project Structure
-
-JIET Studio auto-generates this structure:
-
-```
-my_project/
-├── images/               # Your raw images
-│   ├── img001.jpg
-│   └── img002.jpg
-├── labels/               # YOLO format annotations
-│   ├── img001.txt
-│   └── img002.txt
-├── augmented/            # Generated augmentations
-│   ├── images/
-│   └── labels/
-├── runs/                 # Training outputs
-│   └── detect/
-│       └──train/
-│           └── weights/
-│               ├── best.pt
-│               └── last.pt
-└── project_config.yaml   # Auto-generated
-```
-
-**Note**: Add `*.pt` files to `.gitignore` - models are *large*.
-
----
 
 ## 🔌 Plugin System: Custom Augmentation Filters
 
