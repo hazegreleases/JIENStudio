@@ -271,7 +271,7 @@ class OrganizedLabelingTool(ttk.Frame):
                 with open(label_path, "r") as f:
                     lines = f.readlines()
                     if lines:
-                        class_id = int(lines[0].split()[0])
+                        class_id = int(float(lines[0].split()[0]))
                         if class_id < len(classes):
                             all_images["Classes"][classes[class_id]].append(img_path)
                     else:
@@ -495,7 +495,7 @@ class OrganizedLabelingTool(ttk.Frame):
             for line in f:
                 parts = line.strip().split()
                 if len(parts) >= 5:
-                    cls_idx = int(parts[0])
+                    cls_idx = int(float(parts[0]))
                     cx, cy, w, h = map(float, parts[1:5])
                     
                     if cls_idx < len(classes):
@@ -629,6 +629,29 @@ class OrganizedLabelingTool(ttk.Frame):
         
         self.redo_stack.clear()
         self.update_inspector()
+    
+    def unload_sam(self):
+        """Unload SAM model to free memory (e.g., before training)."""
+        if self.sam_wrapper is not None:
+            print("[Memory] Unloading SAM model...")
+            del self.sam_wrapper
+            self.sam_wrapper = None
+            import gc
+            gc.collect()
+            print("[Memory] SAM model unloaded")
+    
+    def reload_sam(self):
+        """Reload SAM model (e.g., after training completes)."""
+        if self.sam_wrapper is None:
+            print("[Memory] Reloading SAM model...")
+            # Get model path from project config, fallback to default
+            model_path = self.project_manager.project_config.get("auto_label_model", "sam2.1_l.pt")
+            from app.core.sam_wrapper import SAMWrapper
+            try:
+                self.sam_wrapper = SAMWrapper(model_path=model_path)
+                print("[Memory] SAM model reloaded")
+            except Exception as e:
+                print(f"[Memory] Failed to reload SAM: {e}")
     
     def undo(self):
         """Undo last action."""

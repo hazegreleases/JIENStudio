@@ -21,10 +21,14 @@ class RedirectText(object):
         pass
 
 class TrainingView(tk.Frame):
-    def __init__(self, parent, project_manager):
+    def __init__(self, parent, project_manager, unload_callback=None, reload_callback=None):
         super().__init__(parent)
         self.project_manager = project_manager
         self.yolo_wrapper = YOLOWrapper(project_manager.current_project_path)
+        
+        # Model management callbacks
+        self.unload_models_callback = unload_callback
+        self.reload_models_callback = reload_callback
         
         # Store original stdout/stderr
         self.original_stdout = sys.stdout
@@ -149,6 +153,10 @@ class TrainingView(tk.Frame):
             if not classes:
                 messagebox.showerror("Error", "No classes defined! Please add classes in Labeling tab.")
                 return
+            
+            # Unload background models to free memory
+            if self.unload_models_callback:
+                self.unload_models_callback()
 
             self.console_text.insert(tk.END, "Preparing dataset...\n")
             train_txt, val_txt = self.yolo_wrapper.prepare_dataset(val_split)
@@ -177,6 +185,11 @@ class TrainingView(tk.Frame):
             self.console_text.insert(tk.END, f"\n{message}\n")
             self.start_btn.config(state="normal")
             self.stop_btn.config(state="disabled")
+            
+            # Reload background models
+            if self.reload_models_callback:
+                self.reload_models_callback()
+            
             messagebox.showinfo("Training", "Training process finished.")
         except tk.TclError:
             pass

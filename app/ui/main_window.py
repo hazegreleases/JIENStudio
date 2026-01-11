@@ -28,6 +28,10 @@ class MainWindow:
 
         self.views = {}
         self.current_view = None
+        
+        # Model management callbacks for training
+        self.model_unload_callback = self.unload_background_models
+        self.model_reload_callback = self.reload_background_models
 
         self.show_project_view()
 
@@ -92,7 +96,12 @@ class MainWindow:
         if view_name == "labeling":
             self.views[view_name] = OrganizedLabelingTool(self.main_container, self.project_manager)
         elif view_name == "training":
-            self.views[view_name] = TrainingView(self.main_container, self.project_manager)
+            self.views[view_name] = TrainingView(
+                self.main_container, 
+                self.project_manager,
+                unload_callback=self.model_unload_callback,
+                reload_callback=self.model_reload_callback
+            )
         elif view_name == "inference":
             self.views[view_name] = InferenceView(self.main_container, self.project_manager)
         elif view_name == "augmentation":
@@ -109,3 +118,46 @@ class MainWindow:
     def clear_view(self):
         for widget in self.main_container.winfo_children():
             widget.destroy()
+    
+    def unload_background_models(self):
+        """Unload all background models to free memory for training."""
+        print("[Memory Manager] Unloading background models...")
+        
+        # Unload SAM from organized labeling if it exists
+        if "labeling" in self.views and hasattr(self.views["labeling"], 'unload_sam'):
+            self.views["labeling"].unload_sam()
+        
+        # Unload any inference models if view exists
+        if "inference" in self.views and hasattr(self.views["inference"], 'unload_model'):
+            try:
+                self.views["inference"].unload_model()
+            except:
+                pass
+        
+        # Aggressive memory cleanup
+        import gc
+        import torch
+        
+        print("[Memory Manager] Running garbage collection...")
+        gc.collect()
+        
+        # Clear CUDA cache if available
+        if torch.cuda.is_available():
+            print("[Memory Manager] Clearing CUDA cache...")
+            torch.cuda.empty_cache()
+            torch.cuda.ipc_collect()
+        
+        # Final garbage collection
+        gc.collect()
+        
+        print("[Memory Manager] Background models unloaded and memory cleaned")
+    
+    def reload_background_models(self):
+        """Reload background models after training completes."""
+        print("[Memory Manager] Reloading background models...")
+        
+        # Reload SAM for Magic Wand functionality
+        if "labeling" in self.views and hasattr(self.views["labeling"], 'reload_sam'):
+            self.views["labeling"].reload_sam()
+        
+        print("[Memory Manager] Background models reloaded")

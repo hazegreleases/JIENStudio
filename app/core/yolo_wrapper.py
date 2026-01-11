@@ -5,6 +5,8 @@ import threading
 from ultralytics import YOLO
 import shutil
 from datetime import datetime
+import gc
+import torch
 
 class YOLOWrapper:
     def __init__(self, project_path):
@@ -63,6 +65,24 @@ class YOLOWrapper:
 
     def stop_training(self):
         self.stop_training_flag = True
+    
+    def cleanup_memory(self):
+        """Aggressive memory cleanup to free VRAM and RAM after training."""
+        print("[Memory Cleanup] Clearing VRAM and RAM...")
+        
+        # Force garbage collection
+        gc.collect()
+        
+        # Clear CUDA cache if available
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.ipc_collect()
+            print(f"[Memory Cleanup] Freed CUDA cache")
+        
+        # Additional garbage collection
+        gc.collect()
+        
+        print("[Memory Cleanup] Memory cleanup complete")
 
     def train_model(self, model_name, data_yaml, epochs, batch_size, imgsz, callback=None):
         """Runs training in a separate thread."""
@@ -108,12 +128,30 @@ class YOLOWrapper:
                     exist_ok=True
                 )
                 
+                # Clean up model reference and memory
+                del model
+                self.cleanup_memory()
+                
                 if callback:
                     callback(f"Training completed. Results saved to {project_runs}/{name}")
             except InterruptedError:
+                # Clean up on manual stop
+                try:
+                    del model
+                except:
+                    pass
+                self.cleanup_memory()
+                
                 if callback:
                     callback("Training stopped by user.")
             except Exception as e:
+                # Clean up on error
+                try:
+                    del model
+                except:
+                    pass
+                self.cleanup_memory()
+                
                 if callback:
                     callback(f"Error during training: {str(e)}")
 

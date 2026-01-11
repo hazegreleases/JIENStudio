@@ -83,6 +83,10 @@ class AugmentationPipeline:
         self.effects = []
         self.enabled = True
         self.augmentations_per_image = 5
+        
+        # Performance: Transform caching
+        self._cached_compose = None
+        self._cache_hash = None
 
     def add_effect(self, effect):
         self.effects.append(effect)
@@ -95,8 +99,33 @@ class AugmentationPipeline:
         if 0 <= from_index < len(self.effects) and 0 <= to_index < len(self.effects):
             self.effects.insert(to_index, self.effects.pop(from_index))
 
-    def get_compose(self):
-        """Compile the pipeline into an Albumentations Compose object."""
+    def _compute_pipeline_hash(self):
+        """Compute hash of current pipeline configuration for cache invalidation."""
+        config_str = json.dumps(self.to_dict(), sort_keys=True)
+        return hash(config_str)
+    
+    def get_compose(self, use_cache=True):
+        """Compile the pipeline into an Albumentations Compose object.
+        
+        Args:
+            use_cache: If True, use cached transform if pipeline hasn't changed
+            
+        Returns:
+            A.Compose: The composed transformation pipeline
+        """
+        if not use_cache:
+            return self._build_compose()
+        
+        # Check cache
+        current_hash = self._compute_pipeline_hash()
+        if current_hash != self._cache_hash or self._cached_compose is None:
+            self._cached_compose = self._build_compose()
+            self._cache_hash = current_hash
+        
+        return self._cached_compose
+    
+    def _build_compose(self):
+        """Build the Albumentations Compose object."""
         transforms = []
         for effect in self.effects:
             if effect.enabled:
@@ -135,35 +164,39 @@ class AugmentationPipeline:
                 self.from_dict(data)
 
     def run_on_image(self, image, bboxes, class_labels):
-        """Run pipeline on a single image and return transformed results."""
+        """Run pipeline on a single image and return transformed results.
+        
+        Args:
+            image: numpy array (RGB)
+            bboxes: list of [cx, cy, w, h] in YOLO format (normalized)
+            class_labels: list of class IDs
+            
+        Returns:
+            tuple: (transformed_image, transformed_bboxes, transformed_labels)
+        """
         if not self.enabled or not self.effects:
             return image, bboxes, class_labels
 
         transform = self.get_compose()
         
-        # Albumentations expects specific formats
-        # bboxes: [[x_center, y_center, width, height], ...] (if format is 'yolo')
-        
         try:
-            # Albumentations requires bboxes to be a list, even if empty
-            # If bboxes is empty, we must pass empty list
             kwargs = {
                 'image': image,
                 'bboxes': bboxes if bboxes else [],
                 'class_labels': class_labels if class_labels else []
             }
-            
-            # If there are no bboxes, we might need to handle it differently depending on A.Compose setup
-            # But we set bbox_params, so it expects bboxes.
-            if not bboxes:
-                # If no bounding boxes, we still need to satisfy the Compose requirement if bbox_params are set
-                # Actually, if we pass empty list it should be fine.
-                pass
 
             result = transform(**kwargs)
             return result['image'], result['bboxes'], result['class_labels']
         except Exception as e:
-            print(f"Augmentation error: {e}")
+            # Improved error handling with context
+            import traceback
+            print(f"[Augmentation Error] Failed to apply pipeline")
+            print(f"  Error: {str(e)}")
+            print(f"  Image shape: {image.shape if hasattr(image, 'shape') else 'unknown'}")
+            print(f"  Num bboxes: {len(bboxes)}")
+            print(f"  Active effects: {[e.name for e in self.effects if e.enabled]}")
+            print(f"  Traceback: {traceback.format_exc()}")
             return image, bboxes, class_labels
 
 # --- Engine ---
@@ -210,7 +243,7 @@ class AugmentationEngine:
                     for line in f:
                         parts = line.strip().split()
                         if len(parts) >= 5:
-                            class_id = int(parts[0])
+                            class_id = int(float(parts[0]))
                             cx, cy, w, h = map(float, parts[1:5])
                             bboxes.append([cx, cy, w, h])
                             class_labels.append(class_id)
@@ -237,7 +270,7 @@ class AugmentationEngine:
                 with open(aug_label_path, 'w') as f:
                     for bbox, class_id in zip(aug_bboxes, aug_classes):
                         cx, cy, w, h = bbox
-                        f.write(f"{class_id} {cx:.6f} {cy:.6f} {w:.6f} {h:.6f}\n")
+                        f.write(f"{int(class_id)} {cx:.6f} {cy:.6f} {w:.6f} {h:.6f}\n")
                 
                 augmented_count += 1
                 
@@ -262,7 +295,7 @@ class AugmentationEngine:
                 for line in f:
                     parts = line.strip().split()
                     if len(parts) >= 5:
-                        class_id = int(parts[0])
+                        class_id = int(float(parts[0]))
                         cx, cy, w, h = map(float, parts[1:5])
                         bboxes.append([cx, cy, w, h])
                         class_labels.append(class_id)

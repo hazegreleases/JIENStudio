@@ -214,7 +214,7 @@ class LabelingTool(tk.Frame):
                 for line in f:
                     parts = line.strip().split()
                     if len(parts) >= 5:
-                        cls_idx = int(parts[0])
+                        cls_idx = int(float(parts[0]))
                         cx, cy, w, h = map(float, parts[1:5])
                         
                         if 0 <= cls_idx < len(classes):

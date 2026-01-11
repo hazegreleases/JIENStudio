@@ -221,60 +221,156 @@ class AugmentationView(ttk.Frame):
             widget.destroy()
 
     def show_effect_settings(self, effect):
+        """Display settings UI for selected effect using ParamSpec."""
         self.clear_settings()
         
-        # Common controls
+        # Effect metadata
+        metadata = effect.get_metadata()
+        
+        # Header with effect info
+        header_frame = ttk.Frame(self.settings_content)
+        header_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        ttk.Label(header_frame, text=effect.name, font=('Arial', 11, 'bold')).pack(anchor=tk.W)
+        if metadata['description']:
+            desc_label = ttk.Label(header_frame, text=metadata['description'], 
+                                 wraplength=280, font=('Arial', 8))
+            desc_label.pack(anchor=tk.W, pady=(2, 0))
+        
+        # Category and bbox safety indicator
+        info_frame = ttk.Frame(header_frame)
+        info_frame.pack(fill=tk.X, pady=(5, 0))
+        
+        category_label = ttk.Label(info_frame, text=f"Category: {metadata['category']}", 
+                                  font=('Arial', 8, 'italic'))
+        category_label.pack(side=tk.LEFT, padx=(0, 10))
+        
+        if metadata['bbox_safe']:
+            bbox_label = ttk.Label(info_frame, text="✓ Bbox Safe", foreground="green", 
+                                  font=('Arial', 8, 'bold'))
+        else:
+            bbox_label = ttk.Label(info_frame, text="⚠ May Affect Bboxes", foreground="orange", 
+                                  font=('Arial', 8, 'bold'))
+        bbox_label.pack(side=tk.LEFT)
+        
+        ttk.Separator(self.settings_content, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
+        
+        # Common controls: Enabled
         common_frame = ttk.Frame(self.settings_content)
         common_frame.pack(fill=tk.X, pady=5)
         
         enabled_var = tk.BooleanVar(value=effect.enabled)
         def toggle_enable():
             effect.enabled = enabled_var.get()
-            self.refresh_listbox() # Update [x] status
+            self.refresh_listbox()
             self.save_config()
             self.generate_preview()
             
-        ttk.Checkbutton(common_frame, text="Enabled", variable=enabled_var, command=toggle_enable).pack(side=tk.LEFT)
+        ttk.Checkbutton(common_frame, text="Enabled", variable=enabled_var, 
+                       command=toggle_enable).pack(side=tk.LEFT)
         
+        # Common controls: Probability
         prob_frame = ttk.Frame(self.settings_content)
         prob_frame.pack(fill=tk.X, pady=5)
+        
         ttk.Label(prob_frame, text="Probability:").pack(side=tk.LEFT)
         prob_var = tk.DoubleVar(value=effect.probability)
+        prob_label = ttk.Label(prob_frame, text=f"{effect.probability:.2f}", width=5)
+        prob_label.pack(side=tk.RIGHT, padx=(5, 0))
+        
         def update_prob(val):
             effect.probability = float(val)
+            prob_label.config(text=f"{float(val):.2f}")
             self.save_config()
-        ttk.Scale(prob_frame, from_=0, to=1, variable=prob_var, command=update_prob).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-
-        # Dynamic specific controls
-        params = effect.get_params()
-        for key, value in params.items():
+            
+        ttk.Scale(prob_frame, from_=0, to=1, variable=prob_var, 
+                command=update_prob).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        
+        ttk.Separator(self.settings_content, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
+        
+        # Dynamic parameter controls using ParamSpec
+        param_specs = effect.get_param_specs()
+        
+        if not param_specs:
+            ttk.Label(self.settings_content, text="No additional parameters", 
+                     font=('Arial', 9, 'italic')).pack(pady=10)
+            return
+        
+        for key, spec in param_specs.items():
             frame = ttk.Frame(self.settings_content)
-            frame.pack(fill=tk.X, pady=2)
+            frame.pack(fill=tk.X, pady=5)
             
+            # Parameter label with description as tooltip (via text)
             clean_name = key.replace('_', ' ').title()
-            ttk.Label(frame, text=f"{clean_name}:").pack(side=tk.LEFT)
+            label = ttk.Label(frame, text=f"{clean_name}:")
+            label.pack(side=tk.LEFT)
             
-            if isinstance(value, float):
-                var = tk.DoubleVar(value=value)
-                # Heuristic for range...
-                scale_max = 1.0
-                if 'limit' in key or 'var' in key: scale_max = 50.0  # broader range for limits
-                if 'fraction' in key: scale_max = 1.0
+            # Show description if available
+            if spec.description:
+                # Create a subtle info label
+                info_btn = ttk.Label(frame, text="ℹ", foreground="#888", font=('Arial', 8))
+                info_btn.pack(side=tk.LEFT, padx=(2, 5))
+                # You could bind this to show a tooltip, but for now just show in status
+            
+            # Value display label
+            if spec.type == 'float':
+                value_str = f"{spec.value:.2f}"
+            else:
+                value_str = str(spec.value)
+            
+            value_label = ttk.Label(frame, text=value_str, width=8, anchor=tk.E)
+            value_label.pack(side=tk.RIGHT, padx=(5, 0))
+            
+            # Create appropriate control based on type
+            if spec.type in ['float', 'int']:
+                var = tk.DoubleVar(value=spec.value) if spec.type == 'float' else tk.IntVar(value=spec.value)
                 
-                cmd = lambda v, k=key: self.update_param(effect, k, v)
-                ttk.Scale(frame, from_=0, to=scale_max, variable=var, command=cmd).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-                # Label to show value
-                ttk.Label(frame, textvariable=var, width=6).pack(side=tk.LEFT)
+                # Use ParamSpec min/max for slider range
+                slider_min = spec.min if spec.min is not None else 0
+                slider_max = spec.max if spec.max is not None else 100
+                 
+                def make_update_cmd(effect_obj, param_key, param_spec, val_label, is_float):
+                    def update_cmd(val):
+                        # Validate and clamp
+                        validated_val = param_spec.clamp(float(val))
+                        effect_obj.set_params({param_key: validated_val})
+                        
+                        # Update display
+                        if is_float:
+                            val_label.config(text=f"{validated_val:.2f}")
+                        else:
+                            val_label.config(text=str(int(validated_val)))
+                        
+                        self.save_config()
+                        self.generate_preview()
+                    return update_cmd
                 
-            elif isinstance(value, int):
-                var = tk.IntVar(value=value)
-                scale_max = 100
-                if 'blur' in key: scale_max = 20
-                if 'limit' in key: scale_max = 180
+                cmd = make_update_cmd(effect, key, spec, value_label, spec.type == 'float')
                 
-                cmd = lambda v, k=key: self.update_param(effect, k, v)
-                ttk.Scale(frame, from_=0, to=scale_max, variable=var, command=cmd).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-                ttk.Label(frame, textvariable=var, width=6).pack(side=tk.LEFT)
+                slider = ttk.Scale(frame, from_=slider_min, to=slider_max, variable=var, command=cmd)
+                slider.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+            
+            elif spec.type == 'bool':
+                var = tk.BooleanVar(value=spec.value)
+                
+                def make_bool_cmd(effect_obj, param_key):
+                    def cmd():
+                        effect_obj.set_params({param_key: var.get()})
+                        value_label.config(text=str(var.get()))
+                        self.save_config()
+                        self.generate_preview()
+                    return cmd
+                
+                ttk.Checkbutton(frame, variable=var, 
+                              command=make_bool_cmd(effect, key)).pack(side=tk.LEFT)
+            
+            # Show  parameter description at bottom if exists
+            if spec.description:
+                desc_frame = ttk.Frame(self.settings_content)
+                desc_frame.pack(fill=tk.X, pady=(0, 5), padx=(10, 0))
+                desc_label = ttk.Label(desc_frame, text=f"  {spec.description}", 
+                                     font=('Arial', 7), foreground="#666", wraplength=260)
+                desc_label.pack(anchor=tk.W)
 
     def update_param(self, effect, key, value):
         effect.set_params({key: float(value)})
