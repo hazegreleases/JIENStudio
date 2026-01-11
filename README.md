@@ -1,58 +1,92 @@
-# Just In Enough Time Studio (JIET Studio)
+### Train YOLOv11 Locally. No Cloud. No Limits.
+**The all-in-one GUI for Labeling, Augmentation, and Training on your own GPU.**
 
-JIET Studio is a comprehensive GUI application designed to streamline the workflow for YOLO object detection projects and to be reliably fast. From data annotation to model training and inference, this tool provides a unified interface for managing your computer vision tasks.
-
-## Features
-
-*   **Project Management**: Easily create, load, and manage object detection projects.
-*   **Integrated Labeling Tool**: Built-in image annotation tool for creating bounding boxes and managing classes with speed and efficiency in mind housing tools like Auto-Labeling.
-*   **Data Augmentation**: Dedicated augmentation tab for applying various transformations (rotation, flip, brightness, contrast, blur, noise, etc.) to expand your dataset with real-time preview capabilities which are modular and can be community made.
-*   **YOLO Training**: User-friendly interface to configure and launch YOLO training sessions. Supports customization of epochs, batch size, image size, and model selection.
-*   **Inference & Testing**: Test your trained models on images, video feeds or webcam directly within the application.
-*   **Theme Support**: Customizable user interface with theme management.
-*   **Dependency Management**: Automatic check and installation of required Python packages.
-
-## Prerequisites
-
-*   Python 3.8 or higher
-*   Windows OS (recommended)
-
-## Installation
-
-1.  Clone this repository or download the source code.
-2.  Navigate to the project directory.
-
-## Usage
-
-1.  Run the application:
-    ```bash
-    python main.py
-    ```
-2.  On the first run, the application will check for missing dependencies (listed in `requirements.txt`) and prompt you to install them.
-3.  **Create a Project**: Start by creating a new project or loading an existing one.
-4.  **Label Data**: Use the "Labeling" tab to annotate your images.
-5.  **Augment Dataset**: (Optional) Use the "Augmentation" tab to expand your dataset with various transformations and filters.
-6.  **Train Model**: Switch to the "Training" tab, configure your parameters, and start training.
-7.  **Test**: Use the "Inference" tab to validate your model's performance.
-
-## Shortcuts
-
-*   **Labeling**: When in the labeling tab, you can use the following shortcuts:
-    *   `Ctrl + S` - Save and move to next image
-    *   `Scroll wheel` - Change the drawing class
-    *   `Ctrl + Shift + D` OR `Del` - Delete current image
-    *   `Ctrl + Shift + D` OR `Del` - Delete selected label
-    
-    Also to remove the Classes you can select the class you want to remove and then you can use the `-` GUI button to delete it.
-
-## Dependencies
-
-*   `ultralytics` (YOLO)
-*   `opencv-python`
-*   `Pillow`
-*   `pyyaml`
-*   `tk` (usually included with Python)
+![Python](https://img.shields.io/badge/Python-3.8%2B-blue) ![YOLOv11](https://img.shields.io/badge/YOLO-v11%2Fv8-magenta) ![License](https://img.shields.io/badge/License-MIT-green) ![Status](https://img.shields.io/badge/Status-Active-success)
 
 ---
 
-Most of this application is made with AI slop. As soon as possible the project will be made from scratch by me a human. This AI slop version was just a proof of concept and a tool for anybody whos willing to use this to train and test their models.
+## 🚀 Why JIETStudio?
+
+Most YOLO tools force you to upload gigabytes of data to the cloud, wait for processing, and pay for training credits. **JIETStudio runs 100% offline on your hardware.**
+
+It is designed for **Flow State**: no popups, no "Are you sure?" dialogs, just speed.
+
+| Feature | Cloud Tools (Roboflow/CVAT) | JIETStudio |
+| :--- | :--- | :--- |
+| **Privacy** | Data uploaded to public servers | **100% Local & Private** |
+| **Labeling** | Slow dropdown menus | **Scroll-Wheel Class Switching And Auto-Labeling** |
+| **Saving** | Latency + Spinners | **Instant "Green Flash" Save** |
+| **Training** | Limited Credits / Queues | **Unlimited Local GPU Training** |
+| **Cost** | $$$ Monthly Subscriptions | **Free & Open Source** |
+
+---
+
+## ⚡ Key Features
+
+### 1. The "Flow State" Labeler
+Designed for speed. Switch classes with your mouse wheel. Zoom with `Ctrl+Scroll` for pixel-perfect accuracy. Save instantly with `Ctrl+S`. No lag, no waiting.
+Auto-Labeling with your selection of models for faster Labeling tasks.
+
+### 2. Industrial-Grade Augmentation (Plugin System)
+Don't just use standard blurs. JIETStudio features a **modular plugin system**.
+* **Built-in:** Rotate, Flip, Noise, Brightness.
+* **Custom Scripting:** Write your own Python filters and use them. The UI automatically generates sliders for your custom parameters.
+
+### 3. One-Click Training
+Forget messing with `data.yaml` files or complex terminal commands.
+* Select your Model (YOLOv8 / YOLO11 / etc.)
+* Select Image Size & Epochs.
+* Click **Train**.
+* *The app handles the entire folder structure and formatting for you.*
+
+### 4. Integrated Inference
+Test your model immediately after training. Pick images, run a video file, or open your webcam to see real-time detections with your new model.
+
+---
+
+## 🛠️ Installation
+
+**Prerequisites:**
+* Python 3.8+
+* Windows OS (Recommended for GUI support)
+* A GPU (NVIDIA RTX recommended for training)
+
+**Setup:**
+1.  Clone the repository:
+    ```bash
+    git clone [https://github.com/hazegreleases/JIETStudio.git](https://github.com/hazegreleases/JIETStudio.git)
+    cd JIETStudio
+    ```
+2.  Run the app (Dependencies auto-install on first run):
+    ```bash
+    python main.py
+    ```
+
+---
+
+## 🎮 Workflow Shortcuts
+
+Master these to label 10x faster:
+
+| Action | Shortcut |
+| :--- | :--- |
+| **Save & Next Image** | `Ctrl + S` (The "Green Flash") |
+| **Switch Class** | `Mouse Scroll Wheel` |
+| **Zoom In/Out** | `Ctrl + Mouse Scroll` |
+| **Delete Box** | `Del` |
+| **Delete Image** | `Ctrl + Shift + D` |
+
+---
+
+## 🤝 Contributing
+
+This project is actively maintained. We welcome pull requests!
+* **Found a bug?** Open an issue.
+* **Created a cool Augmentation Filter?** Submit it to the `filters/community` folder!
+
+**Current Status:** *Rapidly Evolving.* Originally a proof-of-concept, now growing into a robust local tool.
+
+---
+
+## 🏷️ Topics
+`yolov11`, `yolov8`, `object-detection`, `computer-vision`, `labeling-tool`, `image-annotation`, `training-gui`, `ultralytics`, `offline`, `data-augmentation`, `python-gui`, `auto-labeling`, `local-training`, `industrial-ai`
