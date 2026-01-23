@@ -109,6 +109,20 @@ class TrainingView(tk.Frame):
         self.lbl_gpu = tk.Label(self.resource_frame, text="GPU: N/A", bg="#222", fg="#aaa", font=("Consolas", 9))
         self.lbl_gpu.pack(side=tk.RIGHT, padx=5)
 
+        # CUDA Status
+        cuda_status = "CUDA: Unavailable"
+        cuda_color = "red"
+        try:
+            import torch
+            if torch.cuda.is_available():
+                cuda_status = "CUDA: Installed"
+                cuda_color = "#00ff00" # Bright green
+        except ImportError:
+            pass
+
+        self.lbl_cuda = tk.Label(self.resource_frame, text=cuda_status, bg="#222", fg=cuda_color, font=("Consolas", 9, "bold"))
+        self.lbl_cuda.pack(side=tk.RIGHT, padx=10)
+
         self.console_text = tk.Text(self, bg="black", fg="white", height=20)
         self.console_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         

@@ -56,6 +56,21 @@ def check_requirements():
             return True # Let them try anyway if they insist
     return True
 
+def check_cuda():
+    """Checks if CUDA is available and warns the user if not."""
+    try:
+        import torch
+        if not torch.cuda.is_available():
+            messagebox.showwarning(
+                "CUDA Not Found", 
+                "Pytorch for CUDA is not installed, training and Magic Wand performance can be low."
+            )
+    except ImportError:
+        # If torch isn't installed yet, check_requirements will handle it.
+        # We can just return here and let check_requirements do its job.
+        pass
+
+
 def main():
     # We create a root just for the initial checks, then destroy it or use it
     # But since we might restart, we do checks before main loop
@@ -64,6 +79,8 @@ def main():
     root = tk.Tk()
     root.withdraw() 
     
+    check_cuda()
+
     if not check_requirements():
         root.destroy()
         return
