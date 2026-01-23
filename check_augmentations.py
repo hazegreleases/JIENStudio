@@ -10,7 +10,7 @@ sys.path.append(os.getcwd())
 
 from app.core.augmentation_engine import load_filters
 
-TESTED_DIR = "tested"
+TESTED_DIR = "Filter_Showcase"
 IMG_PATH = "img_1.png"
 TXT_PATH = "img_1.txt"
 
