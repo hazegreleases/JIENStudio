@@ -50,7 +50,7 @@ class GaussianBlurEffect(AugmentationEffect):
     
     def get_transform(self):
         limit = self.blur_limit if self.blur_limit % 2 != 0 else self.blur_limit + 1
-        sigma = (self.sigma_limit_min, self.sigma_limit_max) if self.sigma_limit_max > 0 else 0
+        sigma = (self.sigma_limit_min, self.sigma_limit_max) if self.sigma_limit_max > 0 else (0.1, 2.0)
         return A.GaussianBlur(blur_limit=limit, sigma_limit=sigma, p=self.probability)
     
     def get_param_specs(self):

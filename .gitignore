@@ -177,3 +177,9 @@ planning/
 # Keep requirements
 !requirements.txt
 !requirements-dev.txt
+
+
+# Remove debug and aug_check scripts
+debug_*.py
+check_augmentations.py
+verify_filters.py

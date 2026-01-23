@@ -118,8 +118,7 @@ class RandomResizedCropEffect(AugmentationEffect):
     
     def get_transform(self):
         return A.RandomResizedCrop(
-            height=512,
-            width=512,
+            size=(512, 512),
             scale=(self.scale_min, self.scale_max),
             ratio=(self.ratio_min, self.ratio_max),
             p=self.probability

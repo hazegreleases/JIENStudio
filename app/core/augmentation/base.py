@@ -15,6 +15,7 @@ class FilterCategory(Enum):
     SPATIAL = "Spatial"
     NOISE = "Noise"
     BLUR = "Blur"
+    WEATHER = "Weather"
     ADVANCED = "Advanced"
     OTHER = "Other"
 
